@@ -30,31 +30,30 @@ Build TiffinFlow — a premium tiffin meal subscription PWA that feels indisting
   - `pages/`: Landing, Login, Register, Onboarding, Home, Menu, Calendar, Wallet, Plans, Checkout, PaymentSuccess, Profile, Admin, Delivery
   - PWA: `public/manifest.json`, installable
 
-## What's Implemented (✅ 36/36 backend tests passing)
-- JWT email/password auth + admin/delivery seeding + welcome ₹100 credit
-- Onboarding (address detection + dietary tags)
+## What's Implemented (✅ 56/56 backend tests passing — 36 base + 20 P1)
+- JWT email/password auth + **brute-force lockout** (5 failures = 15min, per-email)
+- Onboarding (address detection + dietary tags) + welcome ₹100 credit
 - Premium animated landing + auth UI (framer-motion)
-- Mobile: frosted-glass bottom nav + sticky header
+- Mobile: frosted-glass bottom nav + sticky header with NotificationBell
 - Desktop: left sidebar + center feed (640px) + right gutter
-- Home: today's tiffin hero, quick stats, subscription progress, recent deliveries
+- Home: today's tiffin hero, quick stats, subscription progress, recent deliveries (tappable for tracking)
 - Weekly menu with drag-to-dismiss meal detail drawer + nutrition
-- Subscription calendar with tap-to-pause/resume + 10am IST cutoff logic + plan extension
+- Subscription calendar with tap-to-pause/resume + 10am IST cutoff
 - Wallet: gradient balance card, transactions list, Stripe-powered recharge drawer
-- Plans: 4 plan cards with badges
-- Checkout: 3 payment modes (Stripe / COD / Wallet) with payment-method picker
-- Stripe Checkout integration (sandbox) + `/payment/status/{session_id}` polling + confetti success
-- Payment fulfillment idempotent (wallet credit, sub activation, order paid)
+- Plans + Checkout: 3 payment modes (Stripe/COD/Wallet) — backend enforces COD toggle
+- Stripe Checkout + `/payment/status/{session_id}` polling + confetti success
 - Delivery partner: today's runs, status transitions, COD OTP verification
-- Admin: KPI cards (revenue, customers, active subs, orders) + recent orders table
-- Data-testid on every interactive element
+- Admin overview KPIs + recent orders table
+- **Admin Menu CRUD**: list/add/edit/delete daily menu via drawer form
+- **Admin Plans CRUD**: list/add/edit/delete subscription plans
+- **Admin Settings**: COD enable/disable toggle, delivery-zone tags
+- **In-app notifications**: drawer list, unread badge on bell, auto-poll every 15s
+- **Web Push notifications**: auto-generated VAPID keys, `/push/subscribe` endpoint, "Enable push" CTA in notifications drawer, service worker handles push events
+- **Real-time delivery tracking** (`/track/:orderId`): animated timeline with steps, 5-second polling, COD OTP card
+- **Service worker** (`/sw.js`): stale-while-revalidate for /api/menu/* and same-origin GETs; offline-capable
+- Auto-notify customer on: subscription activation, status changes (preparing → out → delivered), wallet recharge success
 
-## P1 — Deferred
-- Push/SMS/WhatsApp notifications
-- Geo address pin refinement & multi-address book
-- Real-time delivery tracking (live agent location) via websocket
-- Admin menu/plan/COD-zone CRUD UI (backend endpoints exist; UI needed)
-- Service worker for offline menu cache
-- Brute-force lockout & password reset
+## P1 — All Done ✅
 
 ## P2 — Future scaling
 - Multi-city kitchens & franchise model

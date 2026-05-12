@@ -1,0 +1,42 @@
+{
+  "summary": "Backend-only testing for TiffinFlow. Built /app/backend/tests/test_tiffinflow_backend.py with 36 pytest cases covering auth (register/login/me/profile), menu (week/today), plans, subscriptions (wallet/cod/stripe + pause/resume), orders (wallet/cod/stripe), wallet (balance/txns/recharge validation), delivery (role-guard, OTP transitions), admin (stats/users/orders, RBAC) and webhook reachability. After fixing 3 backend bugs related to MongoDB _id leaking into responses, all 36 tests pass (100%).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/webhook/stripe", "issue": "Returns 500 when body has no 'type' field (KeyError inside emergentintegrations.handle_webhook). Outer try/except converts to HTTPException(400) only when CheckoutError is raised, but raw POSTs without signature still produce 'webhook parse failed' log noise. Endpoint behaves correctly (non-404), but should gracefully reject malformed payloads with 400 rather than relying on library exception."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tiffinflow_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Consider auditing all routes that return dicts mutated by Motor's insert_one — same _id leak pattern could recur if devs add new endpoints. A small helper like `await _insert(db.col, doc)` that pops _id post-insert (or always using projection-fetch after insert) would harden the codebase.",
+    "Webhook handler logs an exception traceback for every malformed payload — consider catching at a higher level and silently returning 400.",
+    "CORSMiddleware uses allow_origin_regex='.*' WITH allow_credentials=True. Browsers will accept this since the regex echoes Origin in ACAO, but it's effectively open. Lock down to known preview/prod origins."
+  ],
+  "critical_code_review_comments": [
+    "MongoDB ObjectId leak (fixed): /api/auth/register, _activate_subscription (subscribe wallet/cod), and /api/orders/create (wallet/cod paths) all returned dicts mutated by insert_one which appended a non-serializable _id. login already popped _id but the rest did not. Fixed by adding `dict.pop('_id', None)` after each insert_one. Recommend a single helper.",
+    "Cookie auth always overrides Authorization header in get_current_user(). This is fine for browsers but trips up shared-session API clients (testing/SDKs). Consider preferring Authorization when both are present.",
+    "JWT_SECRET committed to /app/backend/.env. Move to a secret manager for prod.",
+    "Stripe payment fulfillment relies on polling /api/payments/status/{session_id} from the frontend. The webhook route exists but does nothing (returns received: True). This is acceptable but should be documented; otherwise a customer who closes the success page may never see their wallet credited.",
+    "No rate-limiting/brute-force protection on /api/auth/login — playbook recommends lockout after 5 failures. Not implemented.",
+    "Bcrypt hash format verified (starts with $2b$) ✓. httpOnly Secure SameSite=None cookies set ✓. Seed admin only inserts if missing — password rotation via env var won't update existing admin (playbook recommends updating). Currently OK because admin password unchanged.",
+    "/api/auth/me does not include wallet_balance freshness — fetched from cache at fixture time only matters for tests; route itself fetches fresh from DB ✓.",
+    "/api/subscriptions/pause 'extends=False' when target date is today after 10am IST — correct cutoff logic. However if user pauses a FUTURE date, extends is always True (correct). No tests exercise the after-10am-today path due to time dependency.",
+    "/api/delivery/assigned returns all preparing/out_for_delivery orders globally rather than orders assigned to the specific delivery partner. There is no per-partner assignment field. Acceptable for MVP, but flag for scaling.",
+    "/api/admin/stats revenue counts only payment_transactions.amount where payment_status='paid' — excludes wallet-paid subscriptions/orders and COD-collected revenue. May understate true revenue."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (added .pop('_id', None) in 3 places: register response, _activate_subscription, create_order wallet/cod paths)",
+    "/app/backend/tests/test_tiffinflow_backend.py (new test suite)"
+  ],
+  "success_rate": {"backend": "100% (36/36)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Admin admin@tiffinflow.com/admin123, Delivery delivery@tiffinflow.com/delivery123, Customer created on-the-fly via /api/auth/register with test_user_<rand>@example.com",
+  "seed_data_creation": "Each pytest run creates one fresh customer (test_user_*@example.com) with ₹100 welcome balance; persists subscriptions/orders in DB. No cleanup teardown — recommend periodic mongo cleanup of test_user_* docs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run `python -m pytest /app/backend/tests/test_tiffinflow_backend.py -v` for regression. Important: do NOT share a requests.Session across users — backend get_current_user prefers cookies over Authorization header, so cookies from one login will override subsequent Bearer tokens. Use plain requests.* or per-user sessions. Stripe Checkout calls hit a real sandbox via emergentintegrations; session_id and URL are returned but never navigated. Webhook test only verifies endpoint exists (not 404); full signature flow not testable without Stripe-signed payloads.",
+  "rca of the issue": "All three POST 500s during initial run traced to a single root cause: Motor's `collection.insert_one(doc)` mutates the input dict by appending an `_id: ObjectId(...)` key. The handlers then returned that same dict to FastAPI, which couldn't JSON-serialize ObjectId. The login route already had `user.pop('_id', None)` but register/_activate_subscription/create_order(wallet|cod) did not. Reproduction: `curl -X POST /api/auth/register -d '{\"email\":\"x@y.z\",\"password\":\"p\",\"full_name\":\"x\"}'` → 500. Mitigation applied: pop _id post-insert in all 3 places. Long-term: wrap insert_one in a helper that always strips _id, or use `find_one({'id': ...}, {'_id':0})` to re-fetch after insert."
+}

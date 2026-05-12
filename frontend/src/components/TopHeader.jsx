@@ -1,4 +1,5 @@
-import { Bell, MapPin, Sparkles } from "lucide-react";
+import { MapPin, Sparkles } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
 
@@ -22,9 +23,7 @@ export default function TopHeader() {
         <Link to="/plans" data-testid="header-plans-cta" className="h-9 px-3 rounded-full bg-orange-50 text-orange-600 font-semibold text-xs flex items-center gap-1">
           <Sparkles size={14} /> Plans
         </Link>
-        <button data-testid="header-bell" className="h-9 w-9 rounded-full bg-white border border-black/5 flex items-center justify-center">
-          <Bell size={16} className="text-neutral-700" />
-        </button>
+        <NotificationBell compact />
         <Link to="/profile" data-testid="header-avatar" className="h-9 w-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
           {initial}
         </Link>

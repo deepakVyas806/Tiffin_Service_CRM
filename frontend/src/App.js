@@ -15,7 +15,13 @@ import Plans from "@/pages/Plans";
 import Checkout from "@/pages/Checkout";
 import PaymentSuccess from "@/pages/PaymentSuccess";
 import Admin from "@/pages/Admin";
+import AdminMenu from "@/pages/AdminMenu";
+import AdminPlans from "@/pages/AdminPlans";
+import AdminSettings from "@/pages/AdminSettings";
 import Delivery from "@/pages/Delivery";
+import Track from "@/pages/Track";
+import { useEffect } from "react";
+import { registerServiceWorker } from "@/lib/push";
 
 function Root() {
   const { user, loading } = useAuth();
@@ -29,6 +35,7 @@ function Root() {
 }
 
 function App() {
+  useEffect(() => { registerServiceWorker(); }, []);
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -48,7 +55,11 @@ function App() {
           <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
 
           <Route path="/admin" element={<ProtectedRoute role="admin"><Admin /></ProtectedRoute>} />
+          <Route path="/admin/menu" element={<ProtectedRoute role="admin"><AdminMenu /></ProtectedRoute>} />
+          <Route path="/admin/plans" element={<ProtectedRoute role="admin"><AdminPlans /></ProtectedRoute>} />
+          <Route path="/admin/settings" element={<ProtectedRoute role="admin"><AdminSettings /></ProtectedRoute>} />
           <Route path="/delivery" element={<ProtectedRoute role="delivery"><Delivery /></ProtectedRoute>} />
+          <Route path="/track/:orderId" element={<ProtectedRoute><Track /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

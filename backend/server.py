@@ -24,6 +24,15 @@ from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout, CheckoutSessionRequest,
 )
 
+# Web push
+import json as _json
+import base64
+from py_vapid import Vapid
+from pywebpush import webpush, WebPushException
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.backends import default_backend
+
 # ---------- DB Setup ----------
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
@@ -194,12 +203,50 @@ async def register(body: RegisterBody, response: Response):
     return {"user": user, "access_token": access}
 
 
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_MINUTES = 15
+
+
+async def _check_lockout(identifier: str):
+    rec = await db.login_attempts.find_one({"identifier": identifier})
+    if not rec:
+        return
+    locked_until = rec.get("locked_until")
+    if locked_until:
+        lt = datetime.fromisoformat(locked_until)
+        if lt > datetime.now(timezone.utc):
+            mins = int((lt - datetime.now(timezone.utc)).total_seconds() // 60) + 1
+            raise HTTPException(status_code=429, detail=f"Too many failed attempts. Try again in {mins} minute(s).")
+
+
+async def _record_failure(identifier: str):
+    now = datetime.now(timezone.utc)
+    rec = await db.login_attempts.find_one({"identifier": identifier})
+    fails = (rec or {}).get("failures", 0) + 1
+    upd = {"failures": fails, "last_at": now.isoformat()}
+    if fails >= MAX_LOGIN_ATTEMPTS:
+        upd["locked_until"] = (now + timedelta(minutes=LOCKOUT_MINUTES)).isoformat()
+        upd["failures"] = 0
+    await db.login_attempts.update_one(
+        {"identifier": identifier}, {"$set": upd}, upsert=True
+    )
+
+
+async def _clear_attempts(identifier: str):
+    await db.login_attempts.delete_one({"identifier": identifier})
+
+
 @api.post("/auth/login")
-async def login(body: LoginBody, response: Response):
+async def login(body: LoginBody, request: Request, response: Response):
     email = body.email.lower()
+    ip = request.client.host if request.client else "unknown"
+    identifier = f"{ip}:{email}"
+    await _check_lockout(identifier)
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(body.password, user["password_hash"]):
+        await _record_failure(identifier)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    await _clear_attempts(identifier)
     access = create_access_token(user["id"], user["email"], user["role"])
     refresh = create_refresh_token(user["id"])
     set_auth_cookies(response, access, refresh)
@@ -291,11 +338,17 @@ async def subscribe(body: SubscribeBody, request: Request, user: dict = Depends(
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
         sub = await _activate_subscription(user["id"], plan)
+        await create_notification(user["id"], "Subscription activated 🎉",
+                                  f"{plan['name']} starts today. Enjoy your meals!",
+                                  kind="success", data={"sub_id": sub["id"]})
         return {"status": "active", "subscription": sub}
 
     if body.payment_mode == "cod":
         # COD for subscription: activate, mark pending COD collection on first delivery
         sub = await _activate_subscription(user["id"], plan, payment_status="cod_pending")
+        await create_notification(user["id"], "Subscription activated 🎉",
+                                  f"{plan['name']} starts today. We'll collect cash on first delivery.",
+                                  kind="success", data={"sub_id": sub["id"]})
         return {"status": "active", "subscription": sub, "cod": True}
 
     # stripe
@@ -409,6 +462,10 @@ async def resume_sub(body: PauseBody, user: dict = Depends(get_current_user)):
 # ============================================================
 @api.post("/orders/create")
 async def create_order(body: OrderBody, request: Request, user: dict = Depends(get_current_user)):
+    if body.payment_mode == "cod":
+        settings = await get_settings()
+        if not settings.get("cod_enabled", True):
+            raise HTTPException(status_code=400, detail="Cash on delivery is currently disabled")
     # default one-time order price
     meal_price = 149.0
     order_id = str(uuid.uuid4())
@@ -578,6 +635,9 @@ async def payment_status(session_id: str, request: Request, user: dict = Depends
                 "note": "Wallet recharge via Stripe",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
+            await create_notification(txn["user_id"], "Wallet recharged ✨",
+                                      f"₹{int(amt)} added to your wallet.",
+                                      kind="success")
         elif kind == "subscription":
             plan = await db.subscription_plans.find_one({"id": txn["metadata"]["plan_id"]}, {"_id": 0})
             if plan:
@@ -641,6 +701,16 @@ async def delivery_update(body: DeliveryStatusBody, user: dict = Depends(get_cur
             update["payment_status"] = "paid"
         update["delivered_at"] = datetime.now(timezone.utc).isoformat()
     await db.orders.update_one({"id": body.order_id}, {"$set": update})
+    # notify customer
+    titles = {
+        "out_for_delivery": ("Your tiffin is on the way 🛵", "Should reach you in 20-30 minutes."),
+        "delivered": ("Tiffin delivered ✅", "Enjoy your meal! Rate it from your home screen."),
+        "preparing": ("Tiffin in the kitchen 👩‍🍳", "Your meal is being freshly prepared."),
+    }
+    if body.status in titles:
+        t, b = titles[body.status]
+        await create_notification(order["user_id"], t, b, kind="delivery",
+                                  data={"order_id": order["id"]})
     return {"ok": True, "status": body.status}
 
 
@@ -686,8 +756,247 @@ async def admin_create_plan(body: PlanBody, user: dict = Depends(require_admin))
 
 
 # ============================================================
-# Mount + Startup
+# Settings / Notifications / Push helpers
 # ============================================================
+async def get_settings() -> dict:
+    s = await db.settings.find_one({"_id": "main"})
+    if not s:
+        s = {
+            "_id": "main",
+            "cod_enabled": True,
+            "delivery_zones": ["560034", "560037", "560038", "560095"],
+            "vapid_public": None,
+            "vapid_private_pem": None,
+        }
+        # auto-generate VAPID keys (P-256 EC)
+        try:
+            priv_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+            priv_pem = priv_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            ).decode("utf-8")
+            pub_raw = priv_key.public_key().public_bytes(
+                encoding=serialization.Encoding.X962,
+                format=serialization.PublicFormat.UncompressedPoint,
+            )
+            s["vapid_public"] = base64.urlsafe_b64encode(pub_raw).rstrip(b"=").decode("utf-8")
+            s["vapid_private_pem"] = priv_pem
+        except Exception as e:
+            logger.warning(f"VAPID gen failed: {e}")
+        await db.settings.insert_one(s)
+    return s
+
+
+async def create_notification(user_id: str, title: str, body: str, kind: str = "info",
+                              data: Optional[dict] = None) -> dict:
+    n = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "title": title,
+        "body": body,
+        "kind": kind,
+        "data": data or {},
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.notifications.insert_one(n)
+    n.pop("_id", None)
+    # try web push (non-blocking best-effort)
+    try:
+        await _send_push(user_id, {"title": title, "body": body, "data": n.get("data", {})})
+    except Exception as e:
+        logger.info(f"push send failed (non-fatal): {e}")
+    return n
+
+
+async def _send_push(user_id: str, payload: dict):
+    settings = await get_settings()
+    priv_pem = settings.get("vapid_private_pem")
+    if not priv_pem:
+        return
+    subs = await db.push_subscriptions.find({"user_id": user_id}, {"_id": 0}).to_list(50)
+    for sub in subs:
+        try:
+            webpush(
+                subscription_info=sub["subscription"],
+                data=_json.dumps(payload),
+                vapid_private_key=priv_pem,
+                vapid_claims={"sub": "mailto:admin@tiffinflow.com"},
+            )
+        except WebPushException as ex:
+            if ex.response is not None and ex.response.status_code in (404, 410):
+                await db.push_subscriptions.delete_one({"id": sub["id"]})
+
+
+# ============================================================
+# NOTIFICATIONS API
+# ============================================================
+@api.get("/notifications")
+async def list_notifications(user: dict = Depends(get_current_user)):
+    items = await db.notifications.find(
+        {"user_id": user["id"]}, {"_id": 0},
+    ).sort("created_at", -1).limit(50).to_list(50)
+    unread = await db.notifications.count_documents({"user_id": user["id"], "read": False})
+    return {"items": items, "unread": unread}
+
+
+@api.post("/notifications/{notif_id}/read")
+async def read_notif(notif_id: str, user: dict = Depends(get_current_user)):
+    await db.notifications.update_one(
+        {"id": notif_id, "user_id": user["id"]}, {"$set": {"read": True}}
+    )
+    return {"ok": True}
+
+
+@api.post("/notifications/read-all")
+async def read_all_notifs(user: dict = Depends(get_current_user)):
+    await db.notifications.update_many(
+        {"user_id": user["id"], "read": False}, {"$set": {"read": True}}
+    )
+    return {"ok": True}
+
+
+# ============================================================
+# PUSH SUBSCRIPTION API
+# ============================================================
+class PushSubBody(BaseModel):
+    subscription: dict
+
+
+@api.get("/push/vapid-public")
+async def vapid_public():
+    s = await get_settings()
+    return {"public_key": s.get("vapid_public")}
+
+
+@api.post("/push/subscribe")
+async def push_subscribe(body: PushSubBody, user: dict = Depends(get_current_user)):
+    endpoint = body.subscription.get("endpoint")
+    if not endpoint:
+        raise HTTPException(status_code=400, detail="Invalid subscription")
+    existing = await db.push_subscriptions.find_one({"user_id": user["id"], "endpoint": endpoint})
+    if existing:
+        return {"ok": True, "existing": True}
+    await db.push_subscriptions.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "endpoint": endpoint,
+        "subscription": body.subscription,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await create_notification(user["id"], "Notifications enabled",
+                              "We'll ping you about deliveries, pauses and wallet updates.",
+                              kind="success")
+    return {"ok": True}
+
+
+# ============================================================
+# ADMIN — Menu / Plans / Settings CRUD
+# ============================================================
+@api.get("/admin/menu")
+async def admin_list_menu(user: dict = Depends(require_admin)):
+    items = await db.daily_menu.find({}, {"_id": 0}).sort("date", 1).to_list(200)
+    return items
+
+
+@api.put("/admin/menu/{menu_date}")
+async def admin_update_menu(menu_date: str, body: MenuBody, user: dict = Depends(require_admin)):
+    doc = body.dict()
+    doc["date"] = menu_date
+    await db.daily_menu.update_one({"date": menu_date}, {"$set": doc}, upsert=True)
+    return doc
+
+
+@api.delete("/admin/menu/{menu_date}")
+async def admin_delete_menu(menu_date: str, user: dict = Depends(require_admin)):
+    await db.daily_menu.delete_one({"date": menu_date})
+    return {"ok": True}
+
+
+@api.get("/admin/plans")
+async def admin_list_plans(user: dict = Depends(require_admin)):
+    items = await db.subscription_plans.find({}, {"_id": 0}).to_list(100)
+    return items
+
+
+@api.put("/admin/plans/{plan_id}")
+async def admin_update_plan(plan_id: str, body: PlanBody, user: dict = Depends(require_admin)):
+    doc = body.dict()
+    doc["id"] = plan_id
+    await db.subscription_plans.update_one({"id": plan_id}, {"$set": doc}, upsert=True)
+    return doc
+
+
+@api.delete("/admin/plans/{plan_id}")
+async def admin_delete_plan(plan_id: str, user: dict = Depends(require_admin)):
+    await db.subscription_plans.delete_one({"id": plan_id})
+    return {"ok": True}
+
+
+class SettingsBody(BaseModel):
+    cod_enabled: Optional[bool] = None
+    delivery_zones: Optional[List[str]] = None
+
+
+@api.get("/settings/public")
+async def public_settings():
+    s = await get_settings()
+    return {
+        "cod_enabled": s.get("cod_enabled", True),
+        "delivery_zones": s.get("delivery_zones", []),
+    }
+
+
+@api.get("/admin/settings")
+async def admin_settings(user: dict = Depends(require_admin)):
+    s = await get_settings()
+    return {
+        "cod_enabled": s.get("cod_enabled", True),
+        "delivery_zones": s.get("delivery_zones", []),
+    }
+
+
+@api.put("/admin/settings")
+async def admin_update_settings(body: SettingsBody, user: dict = Depends(require_admin)):
+    upd = {k: v for k, v in body.dict().items() if v is not None}
+    if upd:
+        await db.settings.update_one({"_id": "main"}, {"$set": upd}, upsert=True)
+    s = await get_settings()
+    return {
+        "cod_enabled": s.get("cod_enabled", True),
+        "delivery_zones": s.get("delivery_zones", []),
+    }
+
+
+# ============================================================
+# ORDER TRACKING (polling endpoint)
+# ============================================================
+@api.get("/orders/{order_id}/track")
+async def track_order(order_id: str, user: dict = Depends(get_current_user)):
+    o = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if o["user_id"] != user["id"] and user.get("role") not in ("admin", "delivery"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    # Compose timeline
+    steps = []
+    created = o.get("created_at")
+    steps.append({"label": "Order placed", "state": "done", "at": created})
+    if o["status"] in ("preparing", "out_for_delivery", "delivered"):
+        steps.append({"label": "Preparing in kitchen", "state": "done" if o["status"] != "preparing" else "active", "at": created})
+    else:
+        steps.append({"label": "Preparing in kitchen", "state": "pending", "at": None})
+    if o["status"] in ("out_for_delivery", "delivered"):
+        steps.append({"label": "Out for delivery", "state": "done" if o["status"] == "delivered" else "active", "at": None})
+    else:
+        steps.append({"label": "Out for delivery", "state": "pending", "at": None})
+    steps.append({"label": "Delivered", "state": "done" if o["status"] == "delivered" else "pending",
+                  "at": o.get("delivered_at")})
+    return {"order": o, "timeline": steps, "now": datetime.now(timezone.utc).isoformat()}
+
+
+
 app.include_router(api)
 
 app.add_middleware(

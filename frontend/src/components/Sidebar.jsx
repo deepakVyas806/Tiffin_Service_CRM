@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, UtensilsCrossed, CalendarDays, Wallet, User, Sparkles, LogOut, ShieldCheck, Truck } from "lucide-react";
+import { Home, UtensilsCrossed, CalendarDays, Wallet, User, Sparkles, LogOut, ShieldCheck, Truck, ChefHat, Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import NotificationBell from "./NotificationBell";
 import { motion } from "framer-motion";
 
 const ITEMS = [
@@ -57,11 +58,28 @@ export default function Sidebar() {
             );
           })}
           {user?.role === "admin" && (
-            <li>
-              <NavLink to="/admin" data-testid="side-admin" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
-                <ShieldCheck size={18} /> <span>Admin</span>
-              </NavLink>
-            </li>
+            <>
+              <li>
+                <NavLink to="/admin" data-testid="side-admin" end className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
+                  <ShieldCheck size={18} /> <span>Admin overview</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/admin/menu" data-testid="side-admin-menu" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
+                  <ChefHat size={18} /> <span>Manage menu</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/admin/plans" data-testid="side-admin-plans" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
+                  <Sparkles size={18} /> <span>Manage plans</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/admin/settings" data-testid="side-admin-settings" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
+                  <SettingsIcon size={18} /> <span>Settings</span>
+                </NavLink>
+              </li>
+            </>
           )}
           {(user?.role === "delivery" || user?.role === "admin") && (
             <li>
@@ -74,17 +92,20 @@ export default function Sidebar() {
       </nav>
 
       {user && (
-        <div className="mt-6 p-4 rounded-2xl bg-white border border-black/5 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
-            {user.full_name?.[0]?.toUpperCase() || "U"}
+        <div className="mt-6">
+          <div className="flex items-center justify-end mb-2 pr-1"><NotificationBell /></div>
+          <div className="p-4 rounded-2xl bg-white border border-black/5 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+              {user.full_name?.[0]?.toUpperCase() || "U"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate">{user.full_name}</div>
+              <div className="text-xs text-neutral-500 truncate">{user.email}</div>
+            </div>
+            <button data-testid="logout-button" onClick={handleLogout} className="p-2 rounded-full hover:bg-neutral-100">
+              <LogOut size={16} className="text-neutral-500" />
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold truncate">{user.full_name}</div>
-            <div className="text-xs text-neutral-500 truncate">{user.email}</div>
-          </div>
-          <button data-testid="logout-button" onClick={handleLogout} className="p-2 rounded-full hover:bg-neutral-100">
-            <LogOut size={16} className="text-neutral-500" />
-          </button>
         </div>
       )}
     </aside>

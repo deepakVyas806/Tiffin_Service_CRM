@@ -128,7 +128,7 @@ export default function Home() {
           ) : (
             <div className="space-y-2">
               {orders.slice(0, 4).map((o) => (
-                <div key={o.id} className="tf-card p-4 flex items-center gap-3">
+                <Link key={o.id} to={`/track/${o.id}`} data-testid={`home-order-${o.id}`} className="block tf-card p-4 flex items-center gap-3 hover:bg-neutral-50 transition">
                   <div className={`h-10 w-10 rounded-2xl flex items-center justify-center ${o.status === "delivered" ? "bg-green-50" : "bg-orange-50"}`}>
                     {o.status === "delivered" ? <CalendarDays size={18} className="text-green-600" /> : <Truck size={18} className="text-orange-600" />}
                   </div>
@@ -137,7 +137,7 @@ export default function Home() {
                     <div className="text-xs text-neutral-500">{o.menu_date} · {o.payment_mode?.toUpperCase()}</div>
                   </div>
                   <div className="text-sm font-bold">₹{o.amount}</div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

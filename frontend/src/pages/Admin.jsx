@@ -3,6 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Users, ShoppingBag, Sparkles, IndianRupee } from "lucide-react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 export default function Admin() {
   const [stats, setStats] = useState(null);
@@ -21,6 +22,19 @@ export default function Admin() {
         <div>
           <div className="text-xs font-bold uppercase tracking-[0.15em] text-neutral-500">Admin</div>
           <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight mt-1">Operations</h1>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto tf-no-scrollbar md:hidden -mx-4 px-4">
+          {[
+            { to: "/admin", label: "Overview" },
+            { to: "/admin/menu", label: "Menu" },
+            { to: "/admin/plans", label: "Plans" },
+            { to: "/admin/settings", label: "Settings" },
+          ].map((t) => (
+            <Link key={t.to} to={t.to} data-testid={`admin-tab-${t.label.toLowerCase()}`} className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold ${t.label === "Overview" ? "bg-neutral-900 text-white" : "bg-white border border-neutral-200 text-neutral-700"}`}>
+              {t.label}
+            </Link>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

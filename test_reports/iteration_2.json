@@ -1,0 +1,65 @@
+{
+  "summary": "Backend-only testing of P1 items: brute-force lockout, in-app notifications, web push VAPID/subscribe, admin CRUD (menu/plans/settings), COD toggle, order tracking, and RBAC. Added /app/backend/tests/test_tiffinflow_p1.py (20 tests). 18/20 pass. Existing regression suite (test_tiffinflow_backend.py) still 36/36. Found 2 real backend bugs: (1) brute-force lockout broken behind K8s ingress because identifier=`{client_ip}:{email}` and client_ip rotates per request; (2) COD-disabled toggle blocks /api/orders/create but NOT /api/subscriptions/subscribe.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/login",
+        "issue": "Brute-force lockout fails in proxied environment. _record_failure uses identifier = `{request.client.host}:{email}`. Behind the K8s ingress, request.client.host is the proxy IP and ROTATES across requests (verified in db.login_attempts: same email mapped to 2+ different IPs after 7 failures, splitting the failure count 4/3, never reaching threshold 5). Result: 5+ wrong attempts followed by correct password still returns 200. Mitigation: key the identifier on email alone (the playbook says '5 wrong logins to same email') OR read the leftmost X-Forwarded-For header and persist that, OR keep both keys but increment a global per-email counter. Reproduction: register a user, POST 7 wrong passwords, then POST correct password — expected 429 on 6th+ attempt, actual 200.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "POST /api/subscriptions/subscribe (payment_mode=cod)",
+        "issue": "Requirement: 'When cod_enabled=false, POST /api/subscriptions/subscribe payment_mode=cod → 400.' The COD-disabled check exists in /api/orders/create (line 466-468) but is MISSING in /api/subscriptions/subscribe — COD subscriptions still activate (200) even when admin disables COD. Fix: add the same `if body.payment_mode == 'cod': settings=await get_settings(); if not settings.get('cod_enabled', True): raise HTTPException(400, ...)` guard at the top of subscribe().",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/orders/{id}/track",
+        "issue": "Timeline 'Out for delivery' step has at=None even when the status has progressed to out_for_delivery (no timestamp recorded for status change). 'Preparing in kitchen' uses created_at instead of an actual preparing-started timestamp. Cosmetic — UI shows steps but cannot show accurate per-step times."
+      },
+      {
+        "endpoint": "POST /api/push/subscribe",
+        "issue": "When _send_push is invoked with a fake (non-routable) endpoint, pywebpush attempts a real HTTP push to the bogus URL and logs an exception. Subscribe API still returns 200 (caught by outer try/except in create_notification) — graceful, but produces noisy logs. Consider checking endpoint host before attempting webpush for test/fake subs."
+      },
+      {
+        "endpoint": "GET /api/settings/public",
+        "issue": "No caching headers. Will be polled by SW for offline; recommend Cache-Control: max-age=60."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tiffinflow_p1.py",
+    "/app/backend/tests/test_tiffinflow_backend.py",
+    "/app/test_reports/pytest/p1_results.xml",
+    "/app/test_reports/pytest/regression_results.xml"
+  ],
+  "action_items": [
+    "FIX brute-force lockout identifier: switch from `{ip}:{email}` to `email` (lowercased) only, OR read leftmost X-Forwarded-For + email. Current implementation is bypassable behind any LB/proxy because client.host rotates. This is a security-impact bug.",
+    "FIX COD toggle: add cod_enabled check in /api/subscriptions/subscribe for payment_mode=cod (mirror the guard already in /api/orders/create).",
+    "Consider recording per-step timestamps on the order doc (preparing_at, out_for_delivery_at) and surfacing them in the /track timeline `at` fields.",
+    "Suppress pywebpush noise when subscription endpoint is unreachable (already non-fatal, just log noise)."
+  ],
+  "critical_code_review_comments": [
+    "Brute-force lockout key choice is wrong for proxied deployments — see action_items.",
+    "COD-toggle enforcement is partial — only orders, not subscriptions. Both must respect the global flag.",
+    "_send_push runs inline inside create_notification's awaited path. Even though wrapped in try/except, slow/failed pywebpush calls will delay the API response by however long the HTTP attempt to the (potentially dead) endpoint takes. Recommend offloading to a background task (asyncio.create_task) or BackgroundTasks dependency to keep the API snappy.",
+    "/api/admin/menu PUT body re-uses MenuBody which requires a `date` field, AND the path also supplies the date. Implementation overwrites body.date with the path param (line 906) — good — but the API consumer must still pass `date` in the JSON or get a 422. Consider making body.date Optional and ignoring it.",
+    "/api/admin/plans PUT is true upsert (creates plan if pid does not exist) but does not validate that plan_id matches a uuid or any naming convention — allows arbitrary id strings. Low risk.",
+    "settings document stores _id='main' as a STRING (not ObjectId). Motor allows this but it confuses tooling. Consider {id: 'main'} instead.",
+    "VAPID private key (PEM) is stored plaintext in db.settings. For prod, move to a KMS-protected secret. Acceptable for MVP.",
+    "/api/notifications has no pagination params and is hardcoded to limit=50. Recommend ?limit=&before= for long-running users.",
+    "delivery /update creates notifications for status transitions but the customer could receive duplicate 'on the way' / 'delivered' if the partner toggles status multiple times. Idempotent guard recommended."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tiffinflow_p1.py (new — 20 P1 tests across 7 classes)"
+  ],
+  "success_rate": {"backend": "P1 18/20 (90%) + regression 36/36 (100%) = 54/56 overall (96.4%)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Admin admin@tiffinflow.com/admin123, Delivery delivery@tiffinflow.com/delivery123, Customers created on-the-fly via /api/auth/register with test_p1_<rand>@example.com",
+  "seed_data_creation": "Multiple customers created via /api/auth/register (test_p1_*@example.com). Session-scoped autouse fixture re-enables cod_enabled=True after the run so other tests are not affected. login_attempts collection accumulates rows per (ip,email) — safe to clean periodically.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run `python -m pytest /app/backend/tests/test_tiffinflow_p1.py /app/backend/tests/test_tiffinflow_backend.py -v` for full regression + P1 coverage. After main agent fixes (a) brute-force identifier and (b) COD subscribe check, the 2 currently failing tests should pass: TestBruteForceLockout::test_lockout_after_five_failures_then_clears_on_success and TestCodToggle::test_cod_disabled_blocks_orders_and_subscriptions. Note: brute-force test uses a fresh user per run, but db.login_attempts grows — feel free to drop {db.login_attempts.deleteMany({})} between runs. Stripe wallet-recharge notification path was NOT tested end-to-end (would require a real Stripe webhook); the create_notification code path on fulfillment IS present at line 638-640 and triggers when /api/payments/status returns paid for the first time.",
+  "rca of the issue": "Brute-force RCA: server.py line 242: `ip = request.client.host if request.client else 'unknown'` then `identifier = f'{ip}:{email}'`. In the K8s preview environment the ingress fronts the FastAPI pod via a service mesh; each request hops through a different sidecar IP (verified via direct MongoDB inspection of db.login_attempts which showed identifiers '10.208.150.130:bf_xxx@x.com' and '10.208.130.66:bf_xxx@x.com' for the SAME 7-attempt run). Therefore per-identifier failure counts cap below the threshold and lockout never engages. Fix options ranked: (1) drop IP from identifier — simplest, matches playbook intent of 'per email'; (2) inspect X-Forwarded-For header (request.headers.get('X-Forwarded-For','').split(',')[0].strip()); (3) maintain BOTH per-IP and per-email counters and trip on either. COD toggle RCA: COD enforcement was added to create_order but the equivalent guard was forgotten in subscribe(); requirement explicitly lists both paths."
+}

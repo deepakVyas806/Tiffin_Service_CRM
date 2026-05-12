@@ -239,8 +239,8 @@ async def _clear_attempts(identifier: str):
 @api.post("/auth/login")
 async def login(body: LoginBody, request: Request, response: Response):
     email = body.email.lower()
-    ip = request.client.host if request.client else "unknown"
-    identifier = f"{ip}:{email}"
+    # Per-email identifier (proxies rotate client IPs, so IP-based keying is bypassable)
+    identifier = f"email:{email}"
     await _check_lockout(identifier)
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(body.password, user["password_hash"]):
@@ -326,6 +326,11 @@ async def subscribe(body: SubscribeBody, request: Request, user: dict = Depends(
     plan = await db.subscription_plans.find_one({"id": body.plan_id}, {"_id": 0})
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
+
+    if body.payment_mode == "cod":
+        settings = await get_settings()
+        if not settings.get("cod_enabled", True):
+            raise HTTPException(status_code=400, detail="Cash on delivery is currently disabled")
 
     if body.payment_mode == "wallet":
         if user.get("wallet_balance", 0) < plan["price"]:

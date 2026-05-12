@@ -1,0 +1,41 @@
+{
+  "summary": "Retest of 2 HIGH-priority backend bugs from iteration 2 plus full P1 + regression. Both fixes verified: (1) brute-force lockout now keys on email only (identifier='email:{email}') so 5 wrong attempts trip the 6th attempt with 429 regardless of proxy IP rotation; (2) /api/subscriptions/subscribe now also rejects payment_mode=cod with 400 when admin sets cod_enabled=false. All P1 (20/20) and regression (36/36) tests pass — 56/56 = 100%.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/orders/{id}/track", "issue": "Timeline 'Out for delivery' step has at=None even after status progresses; 'Preparing in kitchen' uses created_at instead of a real preparing-started timestamp. Cosmetic only — still carried over from iter 2."},
+      {"endpoint": "POST /api/push/subscribe", "issue": "pywebpush attempts a real HTTP push to fake test endpoints, producing noisy logs. Subscribe still returns 200 (graceful). Carried over from iter 2."},
+      {"endpoint": "GET /api/settings/public", "issue": "No Cache-Control header. Recommend max-age=60 for SW offline polling. Carried over from iter 2."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_tiffinflow_p1.py",
+    "/app/backend/tests/test_tiffinflow_backend.py",
+    "/app/test_reports/pytest/p1_results_iter3.xml",
+    "/app/test_reports/pytest/regression_results_iter3.xml"
+  ],
+  "action_items": [
+    "Both HIGH bugs from iter 2 are FIXED and verified — no critical action items remain.",
+    "Optional polish (low priority): record per-step timestamps on orders (preparing_at, out_for_delivery_at) and surface in /track 'at' fields.",
+    "Optional polish: guard _send_push from attempting webpush to obviously non-routable endpoints to suppress log noise.",
+    "Optional polish: add Cache-Control: max-age=60 to /api/settings/public."
+  ],
+  "critical_code_review_comments": [
+    "Brute-force fix is correct: identifier=`email:{email}` (server.py:243) — IP-independent, matches playbook intent. _check_lockout runs before password verify so even a correct password on the 6th attempt returns 429. Verified via the lockout test which previously failed.",
+    "COD-disabled guard now mirrored in /api/subscriptions/subscribe (server.py:332) using the same pattern as /api/orders/create (line 472). Both endpoints fail closed with 400 + message when settings.cod_enabled is False.",
+    "_send_push still runs inline inside create_notification's awaited path; slow/dead push endpoints will add latency to the parent API call. Recommend moving to BackgroundTasks or asyncio.create_task. Not blocking.",
+    "settings document still stores _id='main' as a string. Works but unconventional. Low risk.",
+    "VAPID private key (PEM) still plaintext in db.settings. Acceptable for MVP; move to KMS for prod.",
+    "/api/notifications still has no pagination params (hardcoded limit=50). Recommend ?limit=&before= for active users.",
+    "delivery /update still creates a fresh notification on each status set — no idempotency. Toggling out_for_delivery twice produces duplicates."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "P1 20/20 (100%) + regression 36/36 (100%) = 56/56 overall (100%)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "Admin admin@tiffinflow.com/admin123, Delivery delivery@tiffinflow.com/delivery123, Customers created on-the-fly via /api/auth/register",
+  "seed_data_creation": "Multiple ephemeral customers created via /api/auth/register (test_p1_*@example.com). db.login_attempts was cleared before the run to remove iter-2 carryover. Autouse fixture re-enables cod_enabled=True at end of session.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both HIGH bugs from iter 2 are fixed and the full backend suite is green (56/56). Future runs: `python -m pytest /app/backend/tests/test_tiffinflow_p1.py /app/backend/tests/test_tiffinflow_backend.py -v`. Optional: drop db.login_attempts before brute-force tests to avoid carryover. The brute-force test creates a fresh user per run so it is self-contained, but cleanup keeps the collection small.",
+  "rca of the issue": "Both fixes verified at code level: (a) server.py:243 now uses `identifier = f'email:{email}'` (no IP component) so proxy IP rotation no longer splits the failure counter; the 5-wrong-then-correct test transitions to 429 on attempt 6. (b) server.py:332 (inside subscribe()) now performs `settings=await get_settings(); if body.payment_mode=='cod' and not settings.get('cod_enabled', True): raise HTTPException(400, ...)` matching the guard in create_order (line 472). The COD-toggle test now succeeds with 400 on the subscribe-with-cod attempt and 200 after the admin re-enables COD."
+}

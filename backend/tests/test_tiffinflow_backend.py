@@ -5,7 +5,7 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://flow-meals.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8000").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@tiffinflow.com"
@@ -182,7 +182,7 @@ class TestSubscriptions:
         monthly = next(p for p in plans if p["name"] == "Monthly Plan")
         r = requests.post(f"{API}/subscriptions/subscribe", headers=_h(customer["token"]),
                    json={"plan_id": monthly["id"], "payment_mode": "stripe",
-                         "origin_url": "https://flow-meals.preview.emergentagent.com"})
+                         "origin_url": "http://localhost:3000"})
         assert r.status_code == 200, r.text
         b = r.json()
         assert b.get("checkout_url", "").startswith("http")
@@ -244,7 +244,7 @@ class TestOrders:
         from datetime import date
         r = requests.post(f"{API}/orders/create", headers=_h(customer["token"]),
                    json={"menu_date": date.today().isoformat(), "payment_mode": "stripe",
-                         "origin_url": "https://flow-meals.preview.emergentagent.com"})
+                         "origin_url": "http://localhost:3000"})
         assert r.status_code == 200, r.text
         b = r.json()
         assert b.get("checkout_url", "").startswith("http")
@@ -273,17 +273,17 @@ class TestWallet:
 
     def test_recharge_below_min_400(self, s, customer):
         r = requests.post(f"{API}/wallet/recharge", headers=_h(customer["token"]),
-                   json={"amount": 10, "origin_url": "https://flow-meals.preview.emergentagent.com"})
+                   json={"amount": 10, "origin_url": "http://localhost:3000"})
         assert r.status_code == 400
 
     def test_recharge_above_max_400(self, s, customer):
         r = requests.post(f"{API}/wallet/recharge", headers=_h(customer["token"]),
-                   json={"amount": 60000, "origin_url": "https://flow-meals.preview.emergentagent.com"})
+                   json={"amount": 60000, "origin_url": "http://localhost:3000"})
         assert r.status_code == 400
 
     def test_recharge_valid_returns_checkout(self, s, customer):
         r = requests.post(f"{API}/wallet/recharge", headers=_h(customer["token"]),
-                   json={"amount": 500, "origin_url": "https://flow-meals.preview.emergentagent.com"})
+                   json={"amount": 500, "origin_url": "http://localhost:3000"})
         assert r.status_code == 200, r.text
         b = r.json()
         assert b.get("checkout_url", "").startswith("http")

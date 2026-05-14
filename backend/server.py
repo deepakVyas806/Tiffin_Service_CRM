@@ -13,16 +13,16 @@ from typing import List, Optional, Literal, Any
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ServerSelectionTimeoutError
 from pydantic import BaseModel, Field, EmailStr
+import stripe
 
 from auth_utils import (
     hash_password, verify_password,
     create_access_token, create_refresh_token, decode_token,
     set_auth_cookies, clear_auth_cookies,
 )
-from emergentintegrations.payments.stripe.checkout import (
-    StripeCheckout, CheckoutSessionRequest,
-)
+from local_memory_db import MemoryDB
 
 # Web push
 import json as _json
@@ -35,7 +35,7 @@ from cryptography.hazmat.backends import default_backend
 
 # ---------- DB Setup ----------
 mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
+client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=3000)
 db = client[os.environ["DB_NAME"]]
 
 # ---------- App ----------
@@ -44,6 +44,90 @@ api = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("tiffinflow")
+
+
+class CheckoutSessionRequest(BaseModel):
+    amount: float
+    currency: str
+    success_url: str
+    cancel_url: str
+    metadata: dict = {}
+
+
+class CheckoutSessionResult(BaseModel):
+    session_id: str
+    url: str
+
+
+class CheckoutStatusResult(BaseModel):
+    payment_status: str
+    status: str
+
+
+class WebhookResult(BaseModel):
+    event_type: Optional[str] = None
+
+
+class StripeCheckout:
+    """Small local Stripe adapter replacing the Emergent integration."""
+
+    def __init__(self, api_key: Optional[str], webhook_url: str):
+        self.api_key = api_key or ""
+        self.webhook_url = webhook_url
+        if self._is_configured:
+            stripe.api_key = self.api_key
+
+    @property
+    def _is_configured(self) -> bool:
+        return bool(self.api_key) and self.api_key != "sk_test_dummy"
+
+    async def create_checkout_session(self, req: CheckoutSessionRequest) -> CheckoutSessionResult:
+        if not self._is_configured:
+            session_id = f"local_{uuid.uuid4().hex}"
+            return CheckoutSessionResult(
+                session_id=session_id,
+                url=req.success_url.replace("{CHECKOUT_SESSION_ID}", session_id),
+            )
+
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            success_url=req.success_url,
+            cancel_url=req.cancel_url,
+            metadata=req.metadata,
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": req.currency,
+                        "product_data": {"name": req.metadata.get("kind", "TiffinFlow payment")},
+                        "unit_amount": int(round(req.amount * 100)),
+                    },
+                    "quantity": 1,
+                }
+            ],
+        )
+        return CheckoutSessionResult(session_id=session.id, url=session.url)
+
+    async def get_checkout_status(self, session_id: str) -> CheckoutStatusResult:
+        if session_id.startswith("local_") or not self._is_configured:
+            return CheckoutStatusResult(payment_status="paid", status="complete")
+
+        session = stripe.checkout.Session.retrieve(session_id)
+        return CheckoutStatusResult(
+            payment_status=session.payment_status,
+            status=session.status,
+        )
+
+    async def handle_webhook(self, body_bytes: bytes, signature: Optional[str]) -> WebhookResult:
+        webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+        if self._is_configured and webhook_secret:
+            event = stripe.Webhook.construct_event(body_bytes, signature, webhook_secret)
+            return WebhookResult(event_type=event.get("type"))
+
+        try:
+            event = _json.loads(body_bytes.decode("utf-8") or "{}")
+        except Exception:
+            event = {}
+        return WebhookResult(event_type=event.get("type"))
 
 
 # ============================================================
@@ -359,7 +443,7 @@ async def subscribe(body: SubscribeBody, request: Request, user: dict = Depends(
     # stripe
     host = body.origin_url or str(request.base_url).rstrip("/")
     webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
-    stripe_co = StripeCheckout(api_key=os.environ["STRIPE_API_KEY"], webhook_url=webhook_url)
+    stripe_co = StripeCheckout(api_key=os.environ.get("STRIPE_API_KEY"), webhook_url=webhook_url)
     success_url = f"{host}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{host}/plans"
     co_req = CheckoutSessionRequest(
@@ -512,7 +596,7 @@ async def create_order(body: OrderBody, request: Request, user: dict = Depends(g
     # stripe
     host = body.origin_url or str(request.base_url).rstrip("/")
     webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
-    stripe_co = StripeCheckout(api_key=os.environ["STRIPE_API_KEY"], webhook_url=webhook_url)
+    stripe_co = StripeCheckout(api_key=os.environ.get("STRIPE_API_KEY"), webhook_url=webhook_url)
     success_url = f"{host}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{host}/menu"
     co_req = CheckoutSessionRequest(
@@ -579,7 +663,7 @@ async def wallet_recharge(body: WalletRechargeBody, request: Request, user: dict
     if body.amount < 50 or body.amount > 50000:
         raise HTTPException(status_code=400, detail="Amount must be between 50 and 50000")
     webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
-    stripe_co = StripeCheckout(api_key=os.environ["STRIPE_API_KEY"], webhook_url=webhook_url)
+    stripe_co = StripeCheckout(api_key=os.environ.get("STRIPE_API_KEY"), webhook_url=webhook_url)
     success_url = f"{body.origin_url}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{body.origin_url}/wallet"
     co_req = CheckoutSessionRequest(
@@ -616,7 +700,7 @@ async def payment_status(session_id: str, request: Request, user: dict = Depends
         return txn
 
     webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
-    stripe_co = StripeCheckout(api_key=os.environ["STRIPE_API_KEY"], webhook_url=webhook_url)
+    stripe_co = StripeCheckout(api_key=os.environ.get("STRIPE_API_KEY"), webhook_url=webhook_url)
     status = await stripe_co.get_checkout_status(session_id)
 
     new_payment_status = status.payment_status
@@ -666,7 +750,7 @@ async def payment_status(session_id: str, request: Request, user: dict = Depends
 async def stripe_webhook(request: Request):
     body_bytes = await request.body()
     webhook_url = f"{str(request.base_url).rstrip('/')}/api/webhook/stripe"
-    stripe_co = StripeCheckout(api_key=os.environ["STRIPE_API_KEY"], webhook_url=webhook_url)
+    stripe_co = StripeCheckout(api_key=os.environ.get("STRIPE_API_KEY"), webhook_url=webhook_url)
     try:
         resp = await stripe_co.handle_webhook(body_bytes, request.headers.get("Stripe-Signature"))
     except Exception as e:
@@ -1100,6 +1184,17 @@ async def seed_data():
 
 @app.on_event("startup")
 async def on_startup():
+    global db
+    try:
+        await client.admin.command("ping")
+    except ServerSelectionTimeoutError as exc:
+        if os.environ.get("ALLOW_MEMORY_DB", "true").lower() != "true":
+            raise RuntimeError(
+                f"MongoDB is not reachable at {mongo_url}. Start MongoDB or update MONGO_URL in backend/.env."
+            ) from exc
+        logger.warning("MongoDB is not reachable at %s. Using in-memory development database.", mongo_url)
+        db = MemoryDB()
+
     await db.users.create_index("email", unique=True)
     await db.user_subscriptions.create_index("user_id")
     await db.orders.create_index("user_id")

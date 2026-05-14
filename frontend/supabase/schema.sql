@@ -1,0 +1,15 @@
+-- TiffinFlow Supabase schema index
+--
+-- The schema is intentionally split by module under ./schema.
+-- Run these files in Supabase SQL Editor in order:
+--
+-- 1. schema/00_extensions.sql
+-- 2. schema/01_role_functions.sql
+-- 3. schema/02_profiles.sql
+-- 4. schema/03_catalog.sql
+-- 5. schema/04_subscriptions_orders_payments.sql
+-- 6. schema/05_wallet_notifications_settings.sql
+-- 7. schema/06_rls.sql
+-- 8. schema/07_seed.sql
+--
+-- See schema/README.md for admin and delivery role setup.

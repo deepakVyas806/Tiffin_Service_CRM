@@ -39,7 +39,7 @@ export default function Wallet() {
           <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute -left-8 -bottom-12 h-40 w-40 rounded-full bg-amber-300/30 blur-3xl" />
           <div className="relative">
-            <div className="flex items-center gap-2 text-sm opacity-90"><WalletIcon size={16} /> TiffinFlow Wallet</div>
+            <div className="flex items-center gap-2 text-sm opacity-90"><WalletIcon size={16} /> Tiffin Center Wallet</div>
             <div className="mt-6 text-sm opacity-80">Available balance</div>
             <div data-testid="wallet-balance" className="font-display text-5xl font-bold tracking-tight mt-1">₹{balance}</div>
             <button data-testid="wallet-add-money" onClick={() => setOpen(true)} className="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white text-orange-700 font-semibold text-sm shadow">

@@ -25,7 +25,7 @@ export default function Sidebar() {
     >
       <div className="flex items-center gap-2 mb-6 select-none shrink-0">
         <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-display font-bold">T</div>
-        <div className="font-display text-2xl font-bold tracking-tight">TiffinFlow</div>
+        <div className="font-display text-2xl font-bold tracking-tight">Tiffin Center</div>
       </div>
 
       <nav className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">

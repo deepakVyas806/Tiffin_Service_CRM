@@ -17,7 +17,7 @@ export default function Register() {
     setBusy(true); setErr("");
     try {
       await register(form);
-      toast.success("Welcome to TiffinFlow! 1 free meal added");
+      toast.success("Welcome to Tiffin Center! 1 free meal added");
       navigate("/onboarding", { replace: true });
     } catch (e) {
       const msg = formatApiError(e.response?.data?.detail) || e.message;
@@ -30,7 +30,7 @@ export default function Register() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md tf-card p-8">
         <Link to="/" className="flex items-center gap-2 mb-8">
           <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-display font-bold">T</div>
-          <span className="font-display text-xl font-bold tracking-tight">TiffinFlow</span>
+          <span className="font-display text-xl font-bold tracking-tight">Tiffin Center</span>
         </Link>
         <h1 className="font-display text-3xl font-bold tracking-tight">Create your account</h1>
         <p className="text-neutral-500 mt-2">Get your first meal free, instantly.</p>

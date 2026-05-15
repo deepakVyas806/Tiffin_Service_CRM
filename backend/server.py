@@ -1,4 +1,4 @@
-"""TiffinFlow FastAPI backend."""
+"""Tiffin Center FastAPI backend."""
 from dotenv import load_dotenv
 from pathlib import Path
 ROOT_DIR = Path(__file__).parent
@@ -39,7 +39,7 @@ client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=3000)
 db = client[os.environ["DB_NAME"]]
 
 # ---------- App ----------
-app = FastAPI(title="TiffinFlow API")
+app = FastAPI(title="Tiffin Center API")
 api = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO)
@@ -98,7 +98,7 @@ class StripeCheckout:
                 {
                     "price_data": {
                         "currency": req.currency,
-                        "product_data": {"name": req.metadata.get("kind", "TiffinFlow payment")},
+                        "product_data": {"name": req.metadata.get("kind", "Tiffin Center payment")},
                         "unit_amount": int(round(req.amount * 100)),
                     },
                     "quantity": 1,
@@ -1106,7 +1106,7 @@ async def seed_data():
             "id": str(uuid.uuid4()),
             "email": admin_email,
             "password_hash": hash_password(os.environ["ADMIN_PASSWORD"]),
-            "full_name": "TiffinFlow Admin",
+            "full_name": "Tiffin Center Admin",
             "phone": None,
             "role": "admin",
             "wallet_balance": 0.0,
@@ -1201,7 +1201,7 @@ async def on_startup():
     await db.daily_menu.create_index("date", unique=True)
     await db.payment_transactions.create_index("session_id", unique=True)
     await seed_data()
-    logger.info("TiffinFlow seeded.")
+    logger.info("Tiffin Center seeded.")
 
 
 @app.on_event("shutdown")

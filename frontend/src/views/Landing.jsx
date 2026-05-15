@@ -13,7 +13,7 @@ export default function Landing() {
       <header className="px-6 md:px-12 py-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-display font-bold">T</div>
-          <span className="font-display text-xl font-bold tracking-tight">TiffinFlow</span>
+          <span className="font-display text-xl font-bold tracking-tight">Tiffin Center</span>
         </div>
         <div className="flex items-center gap-3">
           <Link to="/login" data-testid="nav-login" className="text-sm font-semibold text-neutral-700 hover:text-orange-600">Sign in</Link>

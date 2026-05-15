@@ -1,4 +1,4 @@
-"""JWT auth helpers for TiffinFlow."""
+"""JWT auth helpers for Tiffin Center."""
 import os
 import bcrypt
 import jwt

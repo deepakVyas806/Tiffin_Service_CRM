@@ -51,7 +51,7 @@ export default function Onboarding() {
     <div className="min-h-screen tf-grain bg-tfcream flex flex-col">
       <div className="px-6 md:px-12 py-6 flex items-center gap-3">
         <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-display font-bold text-sm">T</div>
-        <span className="font-display font-bold tracking-tight">TiffinFlow</span>
+        <span className="font-display font-bold tracking-tight">Tiffin Center</span>
         <div className="ml-auto flex gap-1.5">
           {[0, 1, 2].map((s) => (
             <span key={s} className={`h-1.5 rounded-full transition-all ${step >= s ? "w-8 bg-orange-500" : "w-4 bg-neutral-200"}`} />

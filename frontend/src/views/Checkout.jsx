@@ -92,7 +92,7 @@ export default function Checkout() {
               disabled={!walletEnough}
               onClick={() => walletEnough && setMode("wallet")}
               icon={WalletIcon}
-              title={`TiffinFlow wallet · Rs ${user?.wallet_balance ?? 0}`}
+              title={`Tiffin Center wallet · Rs ${user?.wallet_balance ?? 0}`}
               subtitle={walletEnough ? "Use your wallet balance" : "Insufficient balance"}
             />
           </div>

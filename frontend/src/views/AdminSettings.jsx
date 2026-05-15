@@ -57,7 +57,7 @@ export default function AdminSettings() {
             <div className="h-11 w-11 rounded-2xl bg-green-50 flex items-center justify-center text-green-600"><MapPin size={20} /></div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold">Delivery zones</div>
-              <div className="text-xs text-neutral-500">Add pincodes or area codes where TiffinFlow delivers.</div>
+              <div className="text-xs text-neutral-500">Add pincodes or area codes where Tiffin Center delivers.</div>
             </div>
           </div>
 

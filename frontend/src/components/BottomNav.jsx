@@ -6,9 +6,10 @@ import { adminNav, customerNav, hasPermission, isAdminRole, isCustomerRole } fro
 export default function BottomNav() {
   const location = useLocation();
   const { user } = useAuth();
-  const tabs = (isAdminRole(user?.role) ? adminNav : isCustomerRole(user?.role) ? customerNav : [])
-    .filter((tab) => hasPermission(user, tab.permission))
-    .slice(0, 5);
+  const roleTabs = (isAdminRole(user?.role) ? adminNav : isCustomerRole(user?.role) ? customerNav : [])
+    .filter((tab) => hasPermission(user, tab.permission));
+  const primaryTabs = roleTabs.filter((tab) => tab.mobilePrimary);
+  const tabs = (primaryTabs.length ? primaryTabs : roleTabs).slice(0, 5);
   if (tabs.length === 0) return null;
 
   return (
@@ -18,7 +19,9 @@ export default function BottomNav() {
     >
       <ul className="flex items-center justify-between px-2 py-1.5">
         {tabs.map((tab) => {
-          const active = location.pathname.startsWith(tab.to);
+          const active = tab.end
+            ? location.pathname === tab.to
+            : location.pathname === tab.to || location.pathname.startsWith(`${tab.to}/`);
           const Icon = tab.icon;
           return (
             <li key={tab.to} className="flex-1">

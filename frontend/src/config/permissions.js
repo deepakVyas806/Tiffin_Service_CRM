@@ -81,14 +81,14 @@ export const customerNav = [
 ];
 
 export const adminNav = [
-  { to: "/admin", label: "Dashboard", icon: BarChart3, testid: "side-admin", permission: "admin:dashboard", end: true },
+  { to: "/admin", label: "Dashboard", icon: BarChart3, testid: "side-admin", permission: "admin:dashboard", end: true, mobilePrimary: true },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag, testid: "side-admin-orders", permission: "orders:manage" },
-  { to: "/admin/subscriptions", label: "Subscriptions", icon: Sparkles, testid: "side-admin-subscriptions", permission: "subscriptions:manage" },
-  { to: "/admin/kitchen-schedule", label: "Kitchen Schedule", mobileLabel: "Schedule", icon: CalendarDays, testid: "side-admin-kitchen", permission: "kitchen:manage" },
-  { to: "/admin/menu", label: "Meal Management", mobileLabel: "Meals", icon: ChefHat, testid: "side-admin-menu", permission: "meals:manage" },
+  { to: "/admin/subscriptions", label: "Subscriptions", mobileLabel: "Subs", icon: Sparkles, testid: "side-admin-subscriptions", permission: "subscriptions:manage", mobilePrimary: true },
+  { to: "/admin/kitchen-schedule", label: "Kitchen Schedule", mobileLabel: "Schedule", icon: CalendarDays, testid: "side-admin-kitchen", permission: "kitchen:manage", mobilePrimary: true },
+  { to: "/admin/menu", label: "Meal Management", mobileLabel: "Meals", icon: ChefHat, testid: "side-admin-menu", permission: "meals:manage", mobilePrimary: true },
   { to: "/admin/customers", label: "Customers", icon: Users, testid: "side-admin-customers", permission: "customers:manage" },
   { to: "/admin/payments", label: "Payments", icon: CreditCard, testid: "side-admin-payments", permission: "payments:manage" },
-  { to: "/admin/delivery", label: "Delivery Tracking", icon: Truck, testid: "side-admin-delivery", permission: "delivery:manage" },
+  { to: "/admin/delivery", label: "Delivery Tracking", mobileLabel: "Delivery", icon: Truck, testid: "side-admin-delivery", permission: "delivery:manage", mobilePrimary: true },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3, testid: "side-admin-analytics", permission: "analytics:read" },
   { to: "/admin/notifications", label: "Notifications", icon: Bell, testid: "side-admin-notifications", permission: "notifications:manage" },
   { to: "/admin/settings", label: "Settings", icon: Settings, testid: "side-admin-settings", permission: "settings:manage" },

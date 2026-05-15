@@ -1,4 +1,4 @@
-// TiffinFlow service worker — offline cache + push notifications
+// Tiffin Center service worker - offline cache + push notifications
 const CACHE = "tf-v1";
 const PRECACHE = ["/", "/manifest.json"];
 
@@ -41,7 +41,7 @@ self.addEventListener("fetch", (event) => {
 
 // Web Push
 self.addEventListener("push", (event) => {
-  let payload = { title: "TiffinFlow", body: "You have an update" };
+  let payload = { title: "Tiffin Center", body: "You have an update" };
   try { if (event.data) payload = event.data.json(); } catch (e) {}
   const options = {
     body: payload.body,
@@ -50,7 +50,7 @@ self.addEventListener("push", (event) => {
     data: payload.data || {},
     vibrate: [80, 40, 80],
   };
-  event.waitUntil(self.registration.showNotification(payload.title || "TiffinFlow", options));
+  event.waitUntil(self.registration.showNotification(payload.title || "Tiffin Center", options));
 });
 
 self.addEventListener("notificationclick", (event) => {

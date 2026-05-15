@@ -45,8 +45,8 @@ self.addEventListener("push", (event) => {
   try { if (event.data) payload = event.data.json(); } catch (e) {}
   const options = {
     body: payload.body,
-    icon: "/favicon.ico",
-    badge: "/favicon.ico",
+    icon: "/app-icon.svg",
+    badge: "/app-icon.svg",
     data: payload.data || {},
     vibrate: [80, 40, 80],
   };

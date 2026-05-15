@@ -4,7 +4,8 @@ import { api } from "../lib/api";
 import { motion } from "framer-motion";
 import { Plus, Edit3, Trash2, Save, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { Drawer, DrawerContent, DrawerTitle, DrawerDescription } from "../components/ui/drawer";
+import { Drawer, DrawerTitle, DrawerDescription } from "../components/ui/drawer";
+import ScrollableDrawerContent from "../components/ScrollableDrawerContent";
 
 const EMPTY = { id: null, name: "", description: "", meal_count: 7, price: 899, validity_days: 7, badge: "", meal_type: "lunch", plan_interval: "weekly" };
 
@@ -87,10 +88,10 @@ export default function AdminPlans() {
       </div>
 
       <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="bg-white">
+        <ScrollableDrawerContent>
           <DrawerTitle className="sr-only">Plan form</DrawerTitle>
           <DrawerDescription className="sr-only">Create or update a plan.</DrawerDescription>
-          <div className="p-6 pb-10 max-w-lg mx-auto">
+          <div>
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-display text-2xl font-bold">{form.id ? "Edit plan" : "New plan"}</h2>
               <button onClick={() => setOpen(false)}><X size={20} /></button>
@@ -126,7 +127,7 @@ export default function AdminPlans() {
               <Save size={16} /> Save
             </button>
           </div>
-        </DrawerContent>
+        </ScrollableDrawerContent>
       </Drawer>
     </AppShell>
   );

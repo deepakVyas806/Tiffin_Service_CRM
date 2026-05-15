@@ -1,13 +1,20 @@
-import { MapPin, Sparkles } from "lucide-react";
+import { LogOut, MapPin, Sparkles } from "lucide-react";
 import NotificationBell from "./NotificationBell";
+import InstallAppButton from "./InstallAppButton";
 import { useAuth } from "../lib/auth";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { isAdminRole } from "../config/permissions";
 
 export default function TopHeader() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const initial = user?.full_name?.[0]?.toUpperCase() || "T";
   const admin = isAdminRole(user?.role);
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <header
       data-testid="top-header"
@@ -25,10 +32,23 @@ export default function TopHeader() {
         <Link to={admin ? "/admin/kitchen-schedule" : "/plans"} data-testid="header-plans-cta" className="h-9 px-3 rounded-full bg-orange-50 text-orange-600 font-semibold text-xs flex items-center gap-1">
           <Sparkles size={14} /> {admin ? "Kitchen" : "Plans"}
         </Link>
+        <InstallAppButton compact />
         <NotificationBell compact />
-        <Link to="/profile" data-testid="header-avatar" className="h-9 w-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
-          {initial}
-        </Link>
+        {admin ? (
+          <button
+            type="button"
+            data-testid="header-logout"
+            onClick={handleLogout}
+            className="h-9 w-9 rounded-full bg-white border border-black/5 text-neutral-600 flex items-center justify-center"
+            aria-label="Log out"
+          >
+            <LogOut size={16} />
+          </button>
+        ) : (
+          <Link to="/profile" data-testid="header-avatar" className="h-9 w-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">
+            {initial}
+          </Link>
+        )}
       </div>
     </header>
   );

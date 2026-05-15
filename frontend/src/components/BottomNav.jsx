@@ -41,7 +41,7 @@ export default function BottomNav() {
                     strokeWidth={active ? 2.4 : 2}
                   />
                   <span className={`text-[10px] mt-0.5 font-semibold ${active ? "text-orange-600" : "text-neutral-500"}`}>
-                    {tab.label}
+                    {tab.mobileLabel || tab.label}
                   </span>
                 </span>
               </NavLink>

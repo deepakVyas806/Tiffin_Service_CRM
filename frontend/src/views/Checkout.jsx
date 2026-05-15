@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { motion } from "framer-motion";
-import { CreditCard, Banknote, Wallet as WalletIcon, ArrowRight, Check } from "lucide-react";
+import { Banknote, Wallet as WalletIcon, ArrowRight, Check, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../lib/auth";
 
@@ -11,7 +11,7 @@ export default function Checkout() {
   const { state } = useLocation();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState("stripe");
+  const [mode, setMode] = useState("cod");
   const [busy, setBusy] = useState(false);
 
   if (!state) return <Navigate to="/home" replace />;
@@ -21,27 +21,32 @@ export default function Checkout() {
     setBusy(true);
     try {
       if (kind === "subscription") {
-        const { data } = await api.post("/subscriptions/subscribe", {
-          plan_id, payment_mode: mode, origin_url: window.location.origin,
+        await api.post("/subscriptions/subscribe", {
+          plan_id,
+          payment_mode: mode,
+          origin_url: window.location.origin,
         });
-        if (mode === "stripe") { window.location.href = data.checkout_url; return; }
-        toast.success("Subscription activated 🎉");
+        toast.success("Subscription activated");
         navigate("/payment/success", { state: { kind, name, amount, mode } });
       } else {
         const { data } = await api.post("/orders/create", {
-          menu_date, payment_mode: mode, origin_url: window.location.origin,
+          menu_date,
+          payment_mode: mode,
+          origin_url: window.location.origin,
         });
-        if (mode === "stripe") { window.location.href = data.checkout_url; return; }
         toast.success("Order placed");
         navigate("/payment/success", { state: { kind, name, amount, mode, order: data } });
       }
     } catch (e) {
       const detail = e.response?.data?.detail || "Payment failed";
       toast.error(typeof detail === "string" ? detail : "Payment failed");
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const walletEnough = (user?.wallet_balance || 0) >= amount;
+  const showComingSoon = () => toast.info("UPI / Card / Net banking is coming soon");
 
   return (
     <AppShell>
@@ -49,22 +54,47 @@ export default function Checkout() {
         <div>
           <div className="text-xs font-bold uppercase tracking-[0.15em] text-neutral-500">Checkout</div>
           <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight mt-1">{name}</h1>
-          <div className="text-neutral-500 mt-1 text-sm">{kind === "subscription" ? "Subscription plan" : "One-time tiffin order"}</div>
+          <div className="text-neutral-500 mt-1 text-sm">
+            {kind === "subscription" ? "Subscription plan" : "One-time tiffin order"}
+          </div>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="tf-card p-5">
           <div className="flex items-center justify-between">
             <span className="text-sm text-neutral-500">Amount to pay</span>
-            <span className="font-display text-3xl font-bold">₹{amount}</span>
+            <span className="font-display text-3xl font-bold">Rs {amount}</span>
           </div>
         </motion.div>
 
         <div>
           <div className="text-xs font-bold uppercase tracking-[0.15em] text-neutral-500 mb-3">Payment method</div>
           <div className="space-y-2">
-            <PayOption testid="pay-stripe" active={mode === "stripe"} onClick={() => setMode("stripe")} icon={CreditCard} title="UPI / Card / Net banking" subtitle="Secure online payment via Stripe" />
-            <PayOption testid="pay-cod" active={mode === "cod"} onClick={() => setMode("cod")} icon={Banknote} title="Cash on delivery" subtitle="Pay when your tiffin arrives" badge="POPULAR" />
-            <PayOption testid="pay-wallet" active={mode === "wallet"} disabled={!walletEnough} onClick={() => walletEnough && setMode("wallet")} icon={WalletIcon} title={`TiffinFlow wallet · ₹${user?.wallet_balance ?? 0}`} subtitle={walletEnough ? "Use your wallet balance" : "Insufficient balance"} />
+            <PayOption
+              testid="pay-cod"
+              active={mode === "cod"}
+              onClick={() => setMode("cod")}
+              icon={Banknote}
+              title="Cash on delivery"
+              subtitle="Pay when your tiffin arrives"
+              badge="POPULAR"
+            />
+            <PayOption
+              testid="pay-stripe"
+              disabledLook
+              onClick={showComingSoon}
+              icon={CreditCard}
+              title="UPI / Card / Net banking"
+              subtitle="Coming soon"
+            />
+            <PayOption
+              testid="pay-wallet"
+              active={mode === "wallet"}
+              disabled={!walletEnough}
+              onClick={() => walletEnough && setMode("wallet")}
+              icon={WalletIcon}
+              title={`TiffinFlow wallet · Rs ${user?.wallet_balance ?? 0}`}
+              subtitle={walletEnough ? "Use your wallet balance" : "Insufficient balance"}
+            />
           </div>
         </div>
 
@@ -75,22 +105,28 @@ export default function Checkout() {
           whileTap={{ scale: 0.98 }}
           className="group w-full inline-flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-60 text-white font-semibold py-4 rounded-full"
         >
-          {busy ? "Processing…" : (<>{mode === "cod" ? `Confirm — pay at delivery` : `Pay ₹${amount}`}  <ArrowRight size={16} className="transition group-hover:translate-x-1" /></>)}
+          {busy ? "Processing..." : (
+            <>
+              {mode === "cod" ? "Confirm - pay at delivery" : `Pay Rs ${amount} from wallet`}
+              <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+            </>
+          )}
         </motion.button>
       </div>
     </AppShell>
   );
 }
 
-function PayOption({ active, onClick, icon: Icon, title, subtitle, badge, disabled, testid }) {
+function PayOption({ active, onClick, icon: Icon, title, subtitle, badge, disabled, disabledLook, testid }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-disabled={disabled || disabledLook}
       data-testid={testid}
       className={`relative w-full text-left p-4 rounded-2xl border transition-all flex items-center gap-3 ${
         active ? "border-orange-500 bg-orange-50/60" : "border-neutral-200 bg-white hover:border-neutral-300"
-      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      } ${disabled || disabledLook ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${active ? "bg-orange-500 text-white" : "bg-orange-50 text-orange-700"}`}>
         <Icon size={18} />

@@ -1,15 +1,17 @@
 {
   "short_name": "TiffinFlow",
-  "name": "TiffinFlow — Premium tiffin subscription",
+  "name": "TiffinFlow - Premium tiffin subscription",
   "description": "Home-style tiffins, delivered with calm.",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/home",
+  "scope": "/",
   "display": "standalone",
   "theme_color": "#EA580C",
   "background_color": "#FAF9F6",

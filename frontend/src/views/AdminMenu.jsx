@@ -4,7 +4,8 @@ import { api } from "../lib/api";
 import { motion } from "framer-motion";
 import { Plus, Edit3, Trash2, Sparkles, X, Save, ChefHat } from "lucide-react";
 import { toast } from "sonner";
-import { Drawer, DrawerContent, DrawerTitle, DrawerDescription } from "../components/ui/drawer";
+import { Drawer, DrawerTitle, DrawerDescription } from "../components/ui/drawer";
+import ScrollableDrawerContent from "../components/ScrollableDrawerContent";
 
 const EMPTY = { date: "", main_dish: "", sides: "", nutrition_calories: 650,
                 nutrition_protein: 20, image_url: "", tags: "veg", is_special: false };
@@ -101,10 +102,10 @@ export default function AdminMenu() {
       </div>
 
       <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent className="bg-white">
+        <ScrollableDrawerContent>
           <DrawerTitle className="sr-only">Edit menu</DrawerTitle>
           <DrawerDescription className="sr-only">Add or edit a day's menu.</DrawerDescription>
-          <div className="p-6 pb-10 max-w-lg mx-auto">
+          <div>
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-display text-2xl font-bold">{editing ? "Edit day" : "Add day"}</h2>
               <button onClick={() => setOpen(false)}><X size={20} /></button>
@@ -128,7 +129,7 @@ export default function AdminMenu() {
               <Save size={16} /> Save
             </button>
           </div>
-        </DrawerContent>
+        </ScrollableDrawerContent>
       </Drawer>
     </AppShell>
   );

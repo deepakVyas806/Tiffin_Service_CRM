@@ -41,6 +41,7 @@ export default function Plans() {
               <div className="text-sm text-neutral-500 mt-2">{p.description}</div>
               <ul className="mt-5 space-y-2 text-sm">
                 <Feat>{p.meal_count} chef-curated tiffins</Feat>
+                <Feat>{p.meal_type === "both" ? "Lunch and dinner" : `${p.meal_type || "lunch"} included`} entitlement</Feat>
                 <Feat>Pause anytime · auto-extends plan</Feat>
                 <Feat>COD, UPI, card and wallet supported</Feat>
               </ul>

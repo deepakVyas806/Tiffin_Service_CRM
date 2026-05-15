@@ -8,6 +8,7 @@ import { useLocation } from "react-router-dom";
 
 export default function AppShell({ children, hideGutter = false }) {
   const location = useLocation();
+  const contentWidth = hideGutter ? "w-full max-w-none" : "max-w-[640px] mx-auto";
   return (
     <div className="App tf-grain min-h-screen">
       <Sidebar />
@@ -23,7 +24,7 @@ export default function AppShell({ children, hideGutter = false }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-[640px] mx-auto px-4 md:px-8 pt-4 md:pt-10"
+            className={`${contentWidth} px-4 md:px-8 pt-4 md:pt-10`}
           >
             {children}
           </motion.div>

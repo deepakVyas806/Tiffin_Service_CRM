@@ -74,7 +74,7 @@ export default function Landing() {
           </motion.div>
           <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 5 }} className="hidden md:flex absolute -right-6 bottom-24 tf-card px-4 py-3 items-center gap-2">
             <img src={FRESH_IMG} className="h-8 w-8 rounded-full object-cover" alt="" />
-            <div className="text-xs"><div className="font-bold">+₹100</div><div className="text-neutral-500">Welcome credit</div></div>
+            <div className="text-xs"><div className="font-bold">1 free meal</div><div className="text-neutral-500">Welcome offer</div></div>
           </motion.div>
         </motion.div>
       </section>

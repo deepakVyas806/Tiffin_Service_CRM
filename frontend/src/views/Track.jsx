@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { motion } from "framer-motion";
 import { Check, ChefHat, Truck, MapPin, Receipt, ArrowLeft } from "lucide-react";
 
-const ICONS = { "Order placed": Receipt, "Preparing in kitchen": ChefHat, "Out for delivery": Truck, "Delivered": Check };
+const ICONS = { "Order placed": Receipt, "Preparing in kitchen": ChefHat, "Preparing": ChefHat, "Out for delivery": Truck, "Delivered": Check };
 
 export default function Track() {
   const { orderId } = useParams();
@@ -30,10 +30,10 @@ export default function Track() {
   if (err) return <AppShell hideGutter><div className="tf-card p-8 text-center mt-10"><div className="text-sm text-neutral-500">{err}</div></div></AppShell>;
   if (!data) return <AppShell hideGutter><div className="animate-pulse h-72 bg-neutral-100 rounded-3xl mt-6" /></AppShell>;
 
-  const { order, timeline } = data;
-  const activeIdx = timeline.findIndex(s => s.state === "active");
-  const lastDone = [...timeline].reverse().findIndex(s => s.state === "done");
-  const currentIdx = activeIdx >= 0 ? activeIdx : (timeline.length - 1 - lastDone);
+  const order = data.order || data;
+  const timeline = Array.isArray(data.timeline) ? data.timeline : [];
+  const orderNumber = order?.id ? order.id.slice(0, 8).toUpperCase() : orderId.slice(0, 8).toUpperCase();
+  const status = order?.status || "preparing";
 
   return (
     <AppShell hideGutter>
@@ -43,16 +43,16 @@ export default function Track() {
         </Link>
         <div>
           <div className="text-xs font-bold uppercase tracking-[0.15em] text-neutral-500">Tracking</div>
-          <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight mt-1">Order #{order.id.slice(0, 8).toUpperCase()}</h1>
-          <div className="mt-1 text-sm text-neutral-500">{order.menu_date} · ₹{order.amount}</div>
+          <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight mt-1">Order #{orderNumber}</h1>
+          <div className="mt-1 text-sm text-neutral-500">{order?.menu_date || "Date pending"} · Rs {order?.amount ?? 0}</div>
         </div>
 
         <motion.div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-orange-50 via-amber-50 to-orange-50 border border-orange-100">
           <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-200/40 blur-3xl" />
           <div className="relative">
             <div className="text-xs font-bold uppercase tracking-wider text-orange-700">Current status</div>
-            <div className="font-display text-2xl font-bold mt-2 capitalize">{order.status.replaceAll("_", " ")}</div>
-            <div className="mt-2 text-sm text-neutral-600 flex items-center gap-1"><MapPin size={12} /> {order.address || "Address pending"}</div>
+            <div className="font-display text-2xl font-bold mt-2 capitalize">{status.replaceAll("_", " ")}</div>
+            <div className="mt-2 text-sm text-neutral-600 flex items-center gap-1"><MapPin size={12} /> {order?.address || "Address pending"}</div>
           </div>
         </motion.div>
 
@@ -62,7 +62,7 @@ export default function Track() {
             <span className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-neutral-100" aria-hidden />
             {timeline.map((s, i) => {
               const Icon = ICONS[s.label] || Check;
-              const done = s.state === "done";
+              const done = s.state === "done" || s.done === true;
               const active = s.state === "active";
               return (
                 <motion.li
@@ -88,10 +88,10 @@ export default function Track() {
           </ol>
         </div>
 
-        {order.payment_mode === "cod" && order.status !== "delivered" && (
+        {order?.payment_mode === "cod" && status !== "delivered" && (
           <div className="tf-card p-5 bg-amber-50/40 border-amber-200">
             <div className="text-xs font-bold uppercase tracking-wider text-amber-700">Cash on delivery</div>
-            <div className="mt-1 text-sm">Share this OTP with the delivery partner: <span className="font-bold font-display text-2xl tracking-widest">{order.cod_otp}</span></div>
+            <div className="mt-1 text-sm">Share this OTP with the delivery partner: <span className="font-bold font-display text-2xl tracking-widest">{order?.cod_otp}</span></div>
           </div>
         )}
       </div>

@@ -13,27 +13,43 @@ export default function Home() {
   const [today, setToday] = useState(null);
   const [activeSub, setActiveSub] = useState(null);
   const [orders, setOrders] = useState([]);
-  const [balance, setBalance] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [t, s, o, b] = await Promise.all([
+        const [t, s, o] = await Promise.all([
           api.get("/menu/today"),
           api.get("/subscriptions/active"),
           api.get("/orders/mine"),
-          api.get("/wallet/balance"),
         ]);
         setToday(t.data);
         setActiveSub(s.data || null);
         setOrders(o.data);
-        setBalance(b.data.balance);
       } finally { setLoading(false); }
     })();
   }, []);
 
-  const orderOneTime = () => navigate("/checkout", { state: { kind: "order", menu_date: today?.date, amount: 149, name: today?.main_dish || "One-time tiffin" } });
+  const orderToday = async () => {
+    if (!today?.date) return;
+    const todayTracking = activeSub?.tracking?.find((row) => row.date === today.date && row.status === "active");
+    if ((user?.free_meal_credit || 0) > 0 || todayTracking) {
+      try {
+        const { data } = await api.post("/orders/create", {
+          menu_date: today.date,
+          meal_type: todayTracking?.meal_type || "lunch",
+          payment_mode: todayTracking ? "subscription" : "free_credit",
+          tracking_id: todayTracking?.id,
+        });
+        toast.success(todayTracking ? "Meal scheduled from your subscription" : "Your first meal is on us");
+        navigate(`/track/${data.id}`);
+      } catch (e) {
+        toast.error(e.response?.data?.detail || "Could not place order");
+      }
+      return;
+    }
+    navigate("/checkout", { state: { kind: "order", menu_date: today.date, amount: 149, name: today.main_dish || "One-time tiffin" } });
+  };
 
   const pauseToday = async () => {
     if (!activeSub) return;
@@ -52,6 +68,11 @@ export default function Home() {
           <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight mt-1">
             Hi, {user?.full_name?.split(" ")[0] || "there"} <span className="inline-block">👋</span>
           </h1>
+          {Number(user?.free_meal_credit || 0) > 0 && (
+            <div className="mt-3 inline-flex rounded-full bg-green-50 px-3 py-1.5 text-xs font-bold text-green-700">
+              Your first meal is on us
+            </div>
+          )}
         </div>
 
         {/* Today's tiffin card */}
@@ -71,8 +92,8 @@ export default function Home() {
                 ))}
               </div>
               <div className="mt-5 flex gap-2 flex-wrap">
-                <button data-testid="home-order-onetime" onClick={orderOneTime} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-semibold">
-                  Order today's <ArrowRight size={14} />
+                <button data-testid="home-order-onetime" onClick={orderToday} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-semibold">
+                  {activeSub?.tracking?.some((row) => row.date === today?.date && row.status === "active") ? "Use plan meal" : "Order today's"} <ArrowRight size={14} />
                 </button>
                 {activeSub && (
                   <button data-testid="home-pause-today" onClick={pauseToday} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white/80 backdrop-blur border border-black/5 text-sm font-semibold">
@@ -89,8 +110,8 @@ export default function Home() {
 
         {/* Quick stats grid */}
         <div className="grid grid-cols-2 gap-3 lg:hidden">
-          <StatCard label="Wallet" value={`₹${balance ?? "—"}`} testid="home-stat-wallet" onClick={() => navigate("/wallet")} accent="text-orange-600" />
-          <StatCard label="Meals left" value={activeSub?.meals_left ?? "0"} testid="home-stat-meals" onClick={() => navigate("/calendar")} accent="text-green-600" />
+          <StatCard label="Free meals" value={user?.free_meal_credit ?? 0} testid="home-stat-wallet" onClick={() => navigate("/wallet")} accent="text-orange-600" />
+          <StatCard label="Meals left" value={activeSub?.remaining_meals ?? activeSub?.meals_left ?? "0"} testid="home-stat-meals" onClick={() => navigate("/calendar")} accent="text-green-600" />
         </div>
 
         {/* Subscription banner */}
@@ -100,12 +121,12 @@ export default function Home() {
               <div className="h-11 w-11 rounded-2xl bg-green-50 flex items-center justify-center"><Sparkles size={20} className="text-green-600" /></div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold">{activeSub.plan_name}</div>
-                <div className="text-xs text-neutral-500">{activeSub.meals_left}/{activeSub.total_meals} meals remaining · Till {activeSub.expires_at}</div>
+                <div className="text-xs text-neutral-500">{activeSub.remaining_meals ?? activeSub.meals_left}/{activeSub.total_meals} meals remaining · Till {activeSub.expires_at}</div>
               </div>
               <ChevronRight size={18} className="text-neutral-400" />
             </div>
             <div className="mt-4 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-              <div className="h-full bg-orange-500" style={{ width: `${(activeSub.meals_left / activeSub.total_meals) * 100}%` }} />
+              <div className="h-full bg-orange-500" style={{ width: `${((activeSub.remaining_meals ?? activeSub.meals_left) / activeSub.total_meals) * 100}%` }} />
             </div>
           </Link>
         ) : (

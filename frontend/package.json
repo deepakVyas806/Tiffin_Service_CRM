@@ -62,7 +62,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "start": "next dev",
+    "start": "next start",
     "build": "next build",
     "test": "next lint"
   },

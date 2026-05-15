@@ -17,7 +17,7 @@ export default function Register() {
     setBusy(true); setErr("");
     try {
       await register(form);
-      toast.success("Welcome to TiffinFlow! +₹100 added to your wallet 🎉");
+      toast.success("Welcome to TiffinFlow! 1 free meal added");
       navigate("/onboarding", { replace: true });
     } catch (e) {
       const msg = formatApiError(e.response?.data?.detail) || e.message;
@@ -33,7 +33,7 @@ export default function Register() {
           <span className="font-display text-xl font-bold tracking-tight">TiffinFlow</span>
         </Link>
         <h1 className="font-display text-3xl font-bold tracking-tight">Create your account</h1>
-        <p className="text-neutral-500 mt-2">Get ₹100 welcome credit, instantly.</p>
+        <p className="text-neutral-500 mt-2">Get your first meal free, instantly.</p>
 
         <form onSubmit={submit} className="mt-8 space-y-4">
           <Field icon={User} testid="reg-name" label="Full name" type="text" value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} placeholder="Aanya Sharma" />

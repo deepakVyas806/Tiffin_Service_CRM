@@ -16,9 +16,16 @@ export async function getWeekMenu() {
     .select("*")
     .in("date", days);
   if (error) throw apiError(error.message, 500);
+  const { data: schedule, error: scheduleError } = await supabase
+    .from("kitchen_schedule")
+    .select("*")
+    .in("date", days);
+  if (scheduleError) throw apiError(scheduleError.message, 500);
 
   const byDate = new Map((data || []).map((item) => [item.date, item]));
-  return days.map((day) => byDate.get(day) || {
+  const scheduleByDate = new Map((schedule || []).map((item) => [item.date, item]));
+  return days.map((day) => ({
+    ...(byDate.get(day) || {
     date: day,
     main_dish: "Menu coming soon",
     sides: [],
@@ -26,7 +33,9 @@ export async function getWeekMenu() {
     is_special: false,
     image_url: null,
     tags: [],
-  });
+    }),
+    kitchen_schedule: scheduleByDate.get(day) || null,
+  }));
 }
 
 export async function getTodayMenu() {
@@ -38,7 +47,13 @@ export async function getTodayMenu() {
     .maybeSingle();
 
   if (error) throw apiError(error.message, 500);
-  return data || {
+  const { data: schedule } = await supabase
+    .from("kitchen_schedule")
+    .select("*")
+    .eq("date", todayIso())
+    .maybeSingle();
+  return {
+    ...(data || {
     date: todayIso(),
     main_dish: "Chef's special tiffin",
     sides: ["Rice", "Dal"],
@@ -46,6 +61,8 @@ export async function getTodayMenu() {
     is_special: false,
     image_url: null,
     tags: ["veg"],
+    }),
+    kitchen_schedule: schedule || null,
   };
 }
 

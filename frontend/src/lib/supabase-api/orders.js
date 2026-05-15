@@ -1,7 +1,31 @@
 import { apiError, getSettings, newId, nowIso, requireUser, supabase } from "./common";
+import { getMealAvailability } from "./kitchen";
 
 export async function createOrder(payload) {
   const user = await requireUser();
+  const mealType = payload.meal_type || "lunch";
+  const availability = await getMealAvailability(payload.menu_date, mealType);
+  if (!availability.available) throw apiError(availability.reason || "Kitchen is closed for this meal");
+
+  if (Number(user.free_meal_credit || 0) > 0 && payload.payment_mode !== "subscription") {
+    const { data: orderId, error } = await supabase.rpc("consume_free_meal_credit", {
+      p_menu_date: payload.menu_date,
+      p_meal_type: mealType,
+    });
+    if (error) throw apiError(error.message, 500);
+    return getOrder(orderId);
+  }
+
+  if (payload.tracking_id || payload.payment_mode === "subscription") {
+    const trackingId = payload.tracking_id || await findActiveTracking(user.id, payload.menu_date, mealType);
+    if (!trackingId) throw apiError("No active subscription meal available for this date");
+    const { data: orderId, error } = await supabase.rpc("consume_subscription_meal", {
+      p_tracking_id: trackingId,
+    });
+    if (error) throw apiError(error.message, 500);
+    return getOrder(orderId);
+  }
+
   const mealPrice = 149;
   const order = {
     id: newId(),
@@ -65,6 +89,21 @@ export async function createOrder(payload) {
   return { order_id: order.id, session_id: sessionId, checkout_url: `${origin}/payment/success?session_id=${sessionId}` };
 }
 
+async function findActiveTracking(userId, date, mealType) {
+  const { data, error } = await supabase
+    .from("subscription_tracking")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("date", date)
+    .eq("meal_type", mealType)
+    .eq("status", "active")
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw apiError(error.message, 500);
+  return data?.id || null;
+}
+
 export async function listMyOrders() {
   const user = await requireUser();
   const { data, error } = await supabase
@@ -81,13 +120,13 @@ export async function getOrder(orderId) {
   const { data, error } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
   if (error) throw apiError(error.message, 500);
   if (!data) throw apiError("Order not found", 404);
-  if (data.user_id !== user.id && !["admin", "delivery"].includes(user.role)) throw apiError("Forbidden", 403);
+  if (data.user_id !== user.id && !["admin", "super_admin", "delivery", "delivery_staff"].includes(user.role)) throw apiError("Forbidden", 403);
   return data;
 }
 
 export async function trackOrder(orderId) {
   const order = await getOrder(orderId);
-  return { ...order, timeline: buildTimeline(order) };
+  return { order, timeline: buildTimeline(order) };
 }
 
 async function insertOrder(order) {
@@ -98,8 +137,8 @@ async function insertOrder(order) {
 
 function buildTimeline(order) {
   return [
-    { key: "preparing", label: "Preparing", done: true },
-    { key: "out_for_delivery", label: "Out for delivery", done: ["out_for_delivery", "delivered"].includes(order.status) },
-    { key: "delivered", label: "Delivered", done: order.status === "delivered" },
+    { key: "preparing", label: "Preparing in kitchen", state: order.status === "preparing" ? "active" : "done" },
+    { key: "out_for_delivery", label: "Out for delivery", state: order.status === "out_for_delivery" ? "active" : order.status === "delivered" ? "done" : "pending" },
+    { key: "delivered", label: "Delivered", state: order.status === "delivered" ? "done" : "pending" },
   ];
 }

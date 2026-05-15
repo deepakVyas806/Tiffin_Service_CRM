@@ -2,10 +2,12 @@ import { MapPin, Sparkles } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 import { useAuth } from "../lib/auth";
 import { Link } from "react-router-dom";
+import { isAdminRole } from "../config/permissions";
 
 export default function TopHeader() {
   const { user } = useAuth();
   const initial = user?.full_name?.[0]?.toUpperCase() || "T";
+  const admin = isAdminRole(user?.role);
   return (
     <header
       data-testid="top-header"
@@ -14,14 +16,14 @@ export default function TopHeader() {
       <div className="px-4 py-3 flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-[10px] uppercase tracking-[0.15em] text-neutral-500 font-bold flex items-center gap-1">
-            <MapPin size={11} /> Deliver to
+            <MapPin size={11} /> {admin ? "Operations" : "Deliver to"}
           </div>
           <div className="text-sm font-semibold text-neutral-900 truncate">
-            {user?.address_summary || "Set delivery address"}
+            {admin ? "Admin workspace" : user?.address_summary || "Set delivery address"}
           </div>
         </div>
-        <Link to="/plans" data-testid="header-plans-cta" className="h-9 px-3 rounded-full bg-orange-50 text-orange-600 font-semibold text-xs flex items-center gap-1">
-          <Sparkles size={14} /> Plans
+        <Link to={admin ? "/admin/kitchen-schedule" : "/plans"} data-testid="header-plans-cta" className="h-9 px-3 rounded-full bg-orange-50 text-orange-600 font-semibold text-xs flex items-center gap-1">
+          <Sparkles size={14} /> {admin ? "Kitchen" : "Plans"}
         </Link>
         <NotificationBell compact />
         <Link to="/profile" data-testid="header-avatar" className="h-9 w-9 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">

@@ -71,8 +71,8 @@ export default function Onboarding() {
                 <div className="mt-8 tf-card p-5 flex items-center gap-3">
                   <Sparkles size={20} className="text-orange-600" />
                   <div>
-                    <div className="text-sm font-semibold">₹100 welcome credit added</div>
-                    <div className="text-xs text-neutral-500">Use it on your first order or plan.</div>
+                    <div className="text-sm font-semibold">1 free meal added</div>
+                    <div className="text-xs text-neutral-500">Use it on your first order.</div>
                   </div>
                 </div>
                 <Action data-testid="onb-step-0-next" onClick={() => setStep(1)}>Continue</Action>

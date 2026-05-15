@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { createClient } from "../../utils/supabase/client";
+import { api } from "./api";
 
 const AuthContext = createContext(null);
 const supabase = createClient();
@@ -30,7 +31,8 @@ async function upsertProfile(authUser, payload = {}) {
     geo_lat: payload.geo_lat || null,
     geo_lng: payload.geo_lng || null,
     dietary_tags: payload.dietary_tags || [],
-    wallet_balance: payload.wallet_balance ?? 100,
+    wallet_balance: payload.wallet_balance ?? 0,
+    free_meal_credit: payload.free_meal_credit ?? 1,
     onboarded: payload.onboarded ?? false,
     created_at: new Date().toISOString(),
   };
@@ -42,17 +44,13 @@ async function upsertProfile(authUser, payload = {}) {
     .single();
   if (error) throw error;
 
-  await supabase.from("wallet_transactions").insert({
-    id: crypto.randomUUID(),
-    user_id: authUser.id,
-    type: "credit",
-    amount: profile.wallet_balance,
-    source: "welcome_bonus",
-    note: "Welcome bonus credit",
-    created_at: new Date().toISOString(),
-  }).select("id").maybeSingle();
-
   return data;
+}
+
+function clearClientState() {
+  if (typeof window === "undefined") return;
+  window.localStorage.clear();
+  window.sessionStorage.clear();
 }
 
 export function AuthProvider({ children }) {
@@ -77,7 +75,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     refresh();
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "INITIAL_SESSION") return;
       refresh();
     });
     return () => listener.subscription.unsubscribe();
@@ -112,8 +111,12 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    setLoading(true);
+    await supabase.auth.signOut({ scope: "global" });
+    api.clearCache();
+    clearClientState();
     setUser(false);
+    setLoading(false);
   };
 
   const updateProfile = async (payload) => {

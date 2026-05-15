@@ -1,45 +1,45 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, UtensilsCrossed, CalendarDays, Wallet, User, Sparkles, LogOut, ShieldCheck, Truck, ChefHat, Settings as SettingsIcon } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import NotificationBell from "./NotificationBell";
 import { motion } from "framer-motion";
-
-const ITEMS = [
-  { to: "/home", label: "Home", icon: Home, testid: "side-home" },
-  { to: "/menu", label: "Weekly menu", icon: UtensilsCrossed, testid: "side-menu" },
-  { to: "/calendar", label: "Subscription", icon: CalendarDays, testid: "side-calendar" },
-  { to: "/plans", label: "Plans", icon: Sparkles, testid: "side-plans" },
-  { to: "/wallet", label: "Wallet", icon: Wallet, testid: "side-wallet" },
-  { to: "/profile", label: "Profile", icon: User, testid: "side-profile" },
-];
+import { adminNav, customerNav, deliveryNav, hasPermission, isAdminRole, isCustomerRole } from "../config/permissions";
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const handleLogout = async () => { await logout(); navigate("/"); };
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  };
+  const items = [
+    ...(isCustomerRole(user?.role) ? customerNav : []),
+    ...(isAdminRole(user?.role) ? adminNav : []),
+    ...((user?.role === "delivery" || user?.role === "delivery_staff") ? deliveryNav : []),
+  ].filter((item) => hasPermission(user, item.permission));
 
   return (
     <aside
       data-testid="sidebar"
-      className="hidden md:flex md:flex-col fixed left-0 top-0 bottom-0 w-72 px-6 py-8 border-r border-black/5"
+      className="hidden md:flex md:flex-col fixed left-0 top-0 bottom-0 w-72 px-6 py-8 border-r border-black/5 overflow-hidden"
       style={{ background: "var(--tf-sidebar)" }}
     >
-      <div className="flex items-center gap-2 mb-12 select-none">
+      <div className="flex items-center gap-2 mb-6 select-none shrink-0">
         <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-white font-display font-bold">T</div>
         <div className="font-display text-2xl font-bold tracking-tight">TiffinFlow</div>
       </div>
 
-      <nav className="flex-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
         <ul className="space-y-1.5">
-          {ITEMS.map((it) => {
+          {items.map((it) => {
             const Icon = it.icon;
             return (
               <li key={it.to}>
                 <NavLink
                   to={it.to}
                   data-testid={it.testid}
+                  end={it.end}
                   className={({ isActive }) =>
-                    `relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-colors ${
+                    `relative flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-colors ${
                       isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"
                     }`
                   }
@@ -57,43 +57,11 @@ export default function Sidebar() {
               </li>
             );
           })}
-          {user?.role === "admin" && (
-            <>
-              <li>
-                <NavLink to="/admin" data-testid="side-admin" end className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
-                  <ShieldCheck size={18} /> <span>Admin overview</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink to="/admin/menu" data-testid="side-admin-menu" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
-                  <ChefHat size={18} /> <span>Manage menu</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink to="/admin/plans" data-testid="side-admin-plans" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
-                  <Sparkles size={18} /> <span>Manage plans</span>
-                </NavLink>
-              </li>
-              <li>
-                <NavLink to="/admin/settings" data-testid="side-admin-settings" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
-                  <SettingsIcon size={18} /> <span>Settings</span>
-                </NavLink>
-              </li>
-            </>
-          )}
-          {(user?.role === "delivery" || user?.role === "admin") && (
-            <li>
-              <NavLink to="/delivery" data-testid="side-delivery" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold ${isActive ? "bg-white text-orange-600 shadow-sm" : "text-neutral-600 hover:bg-white/60"}`}>
-                <Truck size={18} /> <span>Delivery</span>
-              </NavLink>
-            </li>
-          )}
         </ul>
       </nav>
 
       {user && (
-        <div className="mt-6">
-          <div className="flex items-center justify-end mb-2 pr-1"><NotificationBell /></div>
+        <div className="mt-3 shrink-0">
           <div className="p-4 rounded-2xl bg-white border border-black/5 flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
               {user.full_name?.[0]?.toUpperCase() || "U"}

@@ -15,7 +15,7 @@ export async function listAdminPlans() {
 export async function createPlan(body) {
   const user = await requireUser();
   assertRole(user, "admin");
-  const plan = { id: newId(), ...body };
+  const plan = { id: newId(), meal_type: "lunch", plan_interval: "weekly", ...body };
   const { data, error } = await supabase.from("subscription_plans").insert(plan).select("*").single();
   if (error) throw apiError(error.message, 500);
   return data;
@@ -26,7 +26,7 @@ export async function upsertPlan(planId, body) {
   assertRole(user, "admin");
   const { data, error } = await supabase
     .from("subscription_plans")
-    .upsert({ ...body, id: planId })
+    .upsert({ meal_type: "lunch", plan_interval: "weekly", ...body, id: planId })
     .select("*")
     .single();
   if (error) throw apiError(error.message, 500);

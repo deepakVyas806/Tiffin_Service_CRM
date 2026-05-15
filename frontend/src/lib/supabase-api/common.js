@@ -28,7 +28,20 @@ export async function requireUser() {
 }
 
 export function assertRole(user, role) {
-  if (user.role !== role && user.role !== "admin") {
+  const adminRoles = ["admin", "super_admin"];
+  if (role === "admin" && !adminRoles.includes(user.role)) {
+    throw apiError("Forbidden", 403);
+  }
+  if (role === "delivery" && !["delivery", "delivery_staff", ...adminRoles].includes(user.role)) {
+    throw apiError("Forbidden", 403);
+  }
+  if (!["admin", "delivery"].includes(role) && user.role !== role && !adminRoles.includes(user.role)) {
+    throw apiError("Forbidden", 403);
+  }
+}
+
+export function assertAnyRole(user, roles = []) {
+  if (!roles.includes(user.role)) {
     throw apiError("Forbidden", 403);
   }
 }

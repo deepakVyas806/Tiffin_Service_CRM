@@ -1,24 +1,23 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Home, UtensilsCrossed, CalendarDays, Wallet, User } from "lucide-react";
-
-const TABS = [
-  { to: "/home", label: "Home", icon: Home, testid: "tab-home" },
-  { to: "/menu", label: "Menu", icon: UtensilsCrossed, testid: "tab-menu" },
-  { to: "/calendar", label: "Calendar", icon: CalendarDays, testid: "tab-calendar" },
-  { to: "/wallet", label: "Wallet", icon: Wallet, testid: "tab-wallet" },
-  { to: "/profile", label: "Profile", icon: User, testid: "tab-profile" },
-];
+import { useAuth } from "../lib/auth";
+import { adminNav, customerNav, hasPermission, isAdminRole, isCustomerRole } from "../config/permissions";
 
 export default function BottomNav() {
   const location = useLocation();
+  const { user } = useAuth();
+  const tabs = (isAdminRole(user?.role) ? adminNav : isCustomerRole(user?.role) ? customerNav : [])
+    .filter((tab) => hasPermission(user, tab.permission))
+    .slice(0, 5);
+  if (tabs.length === 0) return null;
+
   return (
     <nav
       data-testid="bottom-nav"
       className="md:hidden fixed bottom-3 left-3 right-3 z-50 tf-glass rounded-full border shadow-[0_10px_40px_rgba(0,0,0,0.08)]"
     >
       <ul className="flex items-center justify-between px-2 py-1.5">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const active = location.pathname.startsWith(tab.to);
           const Icon = tab.icon;
           return (

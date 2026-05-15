@@ -78,6 +78,30 @@ h1, h2, h3, h4, .font-display {
     border: 1px solid rgba(0,0,0,0.05);
 }
 
+.tf-input {
+    width: 100%;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.tf-input:focus {
+    border-color: rgba(234, 88, 12, 0.72);
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+.tf-input-sm {
+    height: 2.25rem;
+    padding: 0 0.625rem;
+    font-size: 0.8125rem;
+}
+
 .tf-ring-orange {
     box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.16);
 }

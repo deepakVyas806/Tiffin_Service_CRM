@@ -6,7 +6,7 @@ import { Plus, Edit3, Trash2, Save, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Drawer, DrawerContent, DrawerTitle, DrawerDescription } from "../components/ui/drawer";
 
-const EMPTY = { id: null, name: "", description: "", meal_count: 7, price: 899, validity_days: 7, badge: "" };
+const EMPTY = { id: null, name: "", description: "", meal_count: 7, price: 899, validity_days: 7, badge: "", meal_type: "lunch", plan_interval: "weekly" };
 
 export default function AdminPlans() {
   const [plans, setPlans] = useState([]);
@@ -31,6 +31,8 @@ export default function AdminPlans() {
       price: Number(form.price) || 0,
       validity_days: Number(form.validity_days) || 1,
       badge: form.badge || null,
+      meal_type: form.meal_type || "lunch",
+      plan_interval: form.plan_interval || "weekly",
     };
     try {
       if (form.id) {
@@ -73,7 +75,7 @@ export default function AdminPlans() {
               <div className="text-sm text-neutral-500 mt-1">{p.description}</div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="font-display text-2xl font-bold text-orange-600">₹{p.price}</span>
-                <span className="text-xs text-neutral-500">/ {p.validity_days}d · {p.meal_count} meals</span>
+                <span className="text-xs text-neutral-500">/ {p.validity_days}d · {p.meal_count} meals · {p.meal_type || "lunch"}</span>
               </div>
               <div className="mt-4 flex gap-2">
                 <button data-testid={`admin-plan-edit-${p.id}`} onClick={() => openEdit(p)} className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-700 hover:text-orange-600"><Edit3 size={13} /> Edit</button>
@@ -94,14 +96,31 @@ export default function AdminPlans() {
               <button onClick={() => setOpen(false)}><X size={20} /></button>
             </div>
             <div className="space-y-3">
-              <Label l="Name"><input data-testid="plan-form-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="fi" placeholder="Weekly Plan" /></Label>
-              <Label l="Description"><textarea data-testid="plan-form-desc" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} className="fi" placeholder="7 home-style tiffins..." /></Label>
+              <Label l="Name"><input data-testid="plan-form-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="tf-input" placeholder="Weekly Plan" /></Label>
+              <Label l="Description"><textarea data-testid="plan-form-desc" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} className="tf-input h-20 py-2" placeholder="7 home-style tiffins..." /></Label>
               <div className="grid grid-cols-3 gap-3">
-                <Label l="Price (₹)"><input data-testid="plan-form-price" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="fi" /></Label>
-                <Label l="Meals"><input data-testid="plan-form-meals" type="number" value={form.meal_count} onChange={e => setForm({ ...form, meal_count: e.target.value })} className="fi" /></Label>
-                <Label l="Validity (d)"><input data-testid="plan-form-validity" type="number" value={form.validity_days} onChange={e => setForm({ ...form, validity_days: e.target.value })} className="fi" /></Label>
+                <Label l="Price"><input data-testid="plan-form-price" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} className="tf-input" /></Label>
+                <Label l="Meals"><input data-testid="plan-form-meals" type="number" value={form.meal_count} onChange={e => setForm({ ...form, meal_count: e.target.value })} className="tf-input" /></Label>
+                <Label l="Validity"><input data-testid="plan-form-validity" type="number" value={form.validity_days} onChange={e => setForm({ ...form, validity_days: e.target.value })} className="tf-input" /></Label>
               </div>
-              <Label l="Badge (optional)"><input data-testid="plan-form-badge" value={form.badge} onChange={e => setForm({ ...form, badge: e.target.value })} className="fi" placeholder="Most popular" /></Label>
+              <div className="grid grid-cols-2 gap-3">
+                <Label l="Meal type">
+                  <select value={form.meal_type || "lunch"} onChange={e => setForm({ ...form, meal_type: e.target.value })} className="tf-input">
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="both">Lunch + Dinner</option>
+                  </select>
+                </Label>
+                <Label l="Interval">
+                  <select value={form.plan_interval || "weekly"} onChange={e => setForm({ ...form, plan_interval: e.target.value })} className="tf-input">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </Label>
+              </div>
+              <Label l="Badge (optional)"><input data-testid="plan-form-badge" value={form.badge} onChange={e => setForm({ ...form, badge: e.target.value })} className="tf-input" placeholder="Most popular" /></Label>
             </div>
             <button data-testid="plan-form-save" onClick={save} className="mt-6 w-full inline-flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold py-3.5 rounded-full">
               <Save size={16} /> Save
@@ -109,7 +128,6 @@ export default function AdminPlans() {
           </div>
         </DrawerContent>
       </Drawer>
-      <style>{`.fi{width:100%;padding:.75rem 1rem;border-radius:1rem;border:1px solid #e5e7eb;background:#fff;font-size:.875rem;outline:none}.fi:focus{box-shadow:0 0 0 2px #EA580C}`}</style>
     </AppShell>
   );
 }

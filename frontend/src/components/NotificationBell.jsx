@@ -22,8 +22,6 @@ export default function NotificationBell({ compact = false }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000);
-    return () => clearInterval(t);
   }, []);
 
   const openDrawer = async () => {

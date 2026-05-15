@@ -6,17 +6,6 @@ import { Pause, Play, Sparkles, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
-function dateRange(start, days) {
-  const arr = [];
-  const d0 = new Date(start);
-  for (let i = 0; i < days; i++) {
-    const d = new Date(d0);
-    d.setDate(d.getDate() + i);
-    arr.push(d.toISOString().slice(0, 10));
-  }
-  return arr;
-}
-
 export default function CalendarPage() {
   const [sub, setSub] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +52,8 @@ export default function CalendarPage() {
     );
   }
 
-  const days = dateRange(sub.starts_at, Math.min(sub.total_meals + (sub.paused_dates?.length || 0) + 7, 42));
+  const tracking = sub.tracking || [];
+  const days = Array.from(new Set(tracking.map((row) => row.date))).slice(0, 42);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -72,12 +62,12 @@ export default function CalendarPage() {
         <div className="text-xs font-bold uppercase tracking-[0.15em] text-neutral-500">Subscription</div>
         <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight mt-1">{sub.plan_name}</h1>
         <div className="mt-2 flex items-center gap-3 text-sm">
-          <span className="text-neutral-500">{sub.meals_left}/{sub.total_meals} meals left</span>
+          <span className="text-neutral-500">{sub.remaining_meals ?? sub.meals_left}/{sub.total_meals} meals left</span>
           <span className="h-1 w-1 rounded-full bg-neutral-300" />
           <span className="text-neutral-500">Till {sub.expires_at}</span>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${(sub.meals_left / sub.total_meals) * 100}%` }} />
+          <div className="h-full bg-orange-500 rounded-full" style={{ width: `${((sub.remaining_meals ?? sub.meals_left) / sub.total_meals) * 100}%` }} />
         </div>
 
         <div className="mt-7 tf-card p-5">
@@ -89,8 +79,10 @@ export default function CalendarPage() {
               <div key={i} className="text-center text-[10px] font-bold text-neutral-400 mb-1">{d}</div>
             ))}
             {days.map((d) => {
-              const paused = sub.paused_dates?.includes(d);
-              const delivered = sub.delivered_dates?.includes(d);
+              const rows = tracking.filter((row) => row.date === d);
+              const paused = rows.some((row) => row.status === "paused");
+              const delivered = rows.some((row) => row.status === "consumed");
+              const kitchenClosed = rows.some((row) => row.status === "kitchen_closed");
               const isToday = d === today;
               return (
                 <motion.button
@@ -100,13 +92,15 @@ export default function CalendarPage() {
                   onClick={() => togglePause(d)}
                   disabled={busy}
                   className={`aspect-square rounded-2xl flex flex-col items-center justify-center relative transition-all
-                    ${paused ? "bg-neutral-100 text-neutral-400 line-through" :
+                    ${kitchenClosed ? "bg-red-50 text-red-700 border border-red-200" :
+                      paused ? "bg-neutral-100 text-neutral-400 line-through" :
                       delivered ? "bg-green-50 text-green-700 border border-green-200" :
                       isToday ? "bg-orange-50 text-orange-700 border-2 border-orange-500 font-bold" :
                       "bg-white border border-neutral-200 text-neutral-700 hover:border-orange-300"}`}
                 >
                   <span className="text-xs font-semibold">{parseInt(d.slice(-2), 10)}</span>
                   {paused && <Pause size={9} className="absolute bottom-1 right-1" />}
+                  {kitchenClosed && <span className="absolute bottom-1 text-[8px] font-bold">Closed</span>}
                   {delivered && <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-green-600" />}
                 </motion.button>
               );
@@ -117,6 +111,7 @@ export default function CalendarPage() {
             <Legend className="bg-white border-neutral-300 text-neutral-700" label="Active" />
             <Legend className="bg-green-50 border-green-300 text-green-700" label="Delivered" />
             <Legend className="bg-neutral-100 border-neutral-300 text-neutral-400" label="Paused" />
+            <Legend className="bg-red-50 border-red-300 text-red-700" label="Kitchen closed" />
           </div>
           <p className="mt-4 text-xs text-neutral-500">Tap a date to pause/resume. Pauses before 10:00 AM IST extend your plan by 1 day.</p>
         </div>

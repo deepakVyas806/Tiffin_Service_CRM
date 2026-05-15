@@ -49,12 +49,19 @@ export default function Menu() {
                     <Flame size={10} /> Special
                   </span>
                 )}
+                {m.kitchen_schedule?.full_day_closed && (
+                  <span className="absolute bottom-2 left-2 rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-red-700 border border-red-100">
+                    Closed
+                  </span>
+                )}
               </div>
               <div className="flex-1 p-4 min-w-0">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{DAY_NAMES[i]} · {m.date}</div>
                 <div className="font-display font-bold text-base sm:text-lg mt-1 truncate">{m.main_dish}</div>
                 <div className="text-xs text-neutral-500 mt-1 line-clamp-2">{(m.sides || []).join(" · ")}</div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
+                  {m.kitchen_schedule?.lunch_closed && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 text-red-700">Lunch closed</span>}
+                  {m.kitchen_schedule?.dinner_closed && <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 text-red-700">Dinner closed</span>}
                   {(m.tags || []).slice(0, 3).map((t) => (
                     <span key={t} className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-50 text-orange-700">{t.replaceAll('_', ' ')}</span>
                   ))}
@@ -76,6 +83,11 @@ export default function Menu() {
               </div>
               <h2 data-testid="meal-detail-title" className="font-display text-2xl font-bold tracking-tight">{active.main_dish}</h2>
               <p className="text-sm text-neutral-500 mt-1">{active.date}</p>
+              {active.kitchen_schedule && (
+                <div className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {active.kitchen_schedule.reason || "Kitchen availability is limited for this date."}
+                </div>
+              )}
               <div className="mt-4">
                 <div className="text-xs font-bold uppercase tracking-wider text-neutral-500">Includes</div>
                 <ul className="mt-2 space-y-1.5">

@@ -1,13 +1,14 @@
 import { supabase, apiError, getSettings } from "./common";
 import { getAdminSettings, getAdminStats, listAdminOrders, listAdminUsers, updateAdminSettings } from "./admin";
 import { listAssignedOrders, updateDeliveryStatus } from "./delivery";
+import { deleteKitchenSchedule, listKitchenSchedule, upsertKitchenSchedule } from "./kitchen";
 import { deleteMenu, getTodayMenu, getWeekMenu, listAdminMenu, upsertMenu } from "./menu";
 import { markAllNotificationsRead, markNotificationRead, listNotifications } from "./notifications";
 import { createOrder, getOrder, listMyOrders, trackOrder } from "./orders";
 import { createPlan, deletePlan, listAdminPlans, listPlans, upsertPlan } from "./plans";
 import { fulfillPayment } from "./payments";
 import { getCurrentProfile, updateProfile } from "./profile";
-import { getActiveSubscription, listMySubscriptions, setSubscriptionPaused, subscribe } from "./subscriptions";
+import { getActiveSubscription, listMySubscriptions, listMySubscriptionTracking, setSubscriptionPaused, subscribe } from "./subscriptions";
 import { getWalletBalance, listWalletTransactions, rechargeWallet } from "./wallet";
 
 export async function handleGet(path) {
@@ -17,6 +18,7 @@ export async function handleGet(path) {
   if (path === "/plans") return listPlans();
   if (path === "/subscriptions/mine") return listMySubscriptions();
   if (path === "/subscriptions/active") return getActiveSubscription();
+  if (path === "/subscriptions/tracking") return listMySubscriptionTracking();
   if (path === "/orders/mine") return listMyOrders();
   if (path.startsWith("/orders/") && path.endsWith("/track")) return trackOrder(path.split("/")[2]);
   if (path.startsWith("/orders/")) return getOrder(path.split("/")[2]);
@@ -31,6 +33,7 @@ export async function handleGet(path) {
   if (path === "/admin/plans") return listAdminPlans();
   if (path === "/settings/public") return getSettings();
   if (path === "/admin/settings") return getAdminSettings();
+  if (path === "/admin/kitchen-schedule") return listKitchenSchedule();
   if (path === "/notifications") return listNotifications();
   if (path === "/push/vapid-public") return { public_key: null };
   throw apiError(`Unsupported endpoint: ${path}`, 404);
@@ -66,11 +69,13 @@ export async function handlePut(path, body = {}) {
   }
   if (path.startsWith("/admin/plans/")) return upsertPlan(path.split("/").pop(), body);
   if (path === "/admin/settings") return updateAdminSettings(body);
+  if (path === "/admin/kitchen-schedule") return upsertKitchenSchedule(body);
   throw apiError(`Unsupported endpoint: ${path}`, 404);
 }
 
 export async function handleDelete(path) {
   if (path.startsWith("/admin/menu/")) return deleteMenu(decodeURIComponent(path.split("/").pop()));
   if (path.startsWith("/admin/plans/")) return deletePlan(path.split("/").pop());
+  if (path.startsWith("/admin/kitchen-schedule/")) return deleteKitchenSchedule(decodeURIComponent(path.split("/").pop()));
   throw apiError(`Unsupported endpoint: ${path}`, 404);
 }

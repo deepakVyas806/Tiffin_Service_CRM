@@ -110,15 +110,15 @@ export default function AdminMenu() {
               <button onClick={() => setOpen(false)}><X size={20} /></button>
             </div>
             <div className="space-y-3">
-              <FieldLabel label="Date (YYYY-MM-DD)"><input data-testid="menu-form-date" type="date" disabled={editing} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="form-input" /></FieldLabel>
-              <FieldLabel label="Main dish"><input data-testid="menu-form-dish" value={form.main_dish} onChange={e => setForm({ ...form, main_dish: e.target.value })} placeholder="Paneer Butter Masala" className="form-input" /></FieldLabel>
-              <FieldLabel label="Sides (comma separated)"><input data-testid="menu-form-sides" value={form.sides} onChange={e => setForm({ ...form, sides: e.target.value })} placeholder="Jeera Rice, Tawa Roti, Salad" className="form-input" /></FieldLabel>
+              <FieldLabel label="Date (YYYY-MM-DD)"><input data-testid="menu-form-date" type="date" disabled={editing} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="tf-input" /></FieldLabel>
+              <FieldLabel label="Main dish"><input data-testid="menu-form-dish" value={form.main_dish} onChange={e => setForm({ ...form, main_dish: e.target.value })} placeholder="Paneer Butter Masala" className="tf-input" /></FieldLabel>
+              <FieldLabel label="Sides (comma separated)"><input data-testid="menu-form-sides" value={form.sides} onChange={e => setForm({ ...form, sides: e.target.value })} placeholder="Jeera Rice, Tawa Roti, Salad" className="tf-input" /></FieldLabel>
               <div className="grid grid-cols-2 gap-3">
-                <FieldLabel label="Calories"><input data-testid="menu-form-cal" type="number" value={form.nutrition_calories} onChange={e => setForm({ ...form, nutrition_calories: e.target.value })} className="form-input" /></FieldLabel>
-                <FieldLabel label="Protein (g)"><input data-testid="menu-form-protein" type="number" value={form.nutrition_protein} onChange={e => setForm({ ...form, nutrition_protein: e.target.value })} className="form-input" /></FieldLabel>
+                <FieldLabel label="Calories"><input data-testid="menu-form-cal" type="number" value={form.nutrition_calories} onChange={e => setForm({ ...form, nutrition_calories: e.target.value })} className="tf-input" /></FieldLabel>
+                <FieldLabel label="Protein (g)"><input data-testid="menu-form-protein" type="number" value={form.nutrition_protein} onChange={e => setForm({ ...form, nutrition_protein: e.target.value })} className="tf-input" /></FieldLabel>
               </div>
-              <FieldLabel label="Image URL"><input data-testid="menu-form-img" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." className="form-input" /></FieldLabel>
-              <FieldLabel label="Tags (comma separated)"><input data-testid="menu-form-tags" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="veg, special" className="form-input" /></FieldLabel>
+              <FieldLabel label="Image URL"><input data-testid="menu-form-img" value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." className="tf-input" /></FieldLabel>
+              <FieldLabel label="Tags (comma separated)"><input data-testid="menu-form-tags" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="veg, special" className="tf-input" /></FieldLabel>
               <label className="flex items-center gap-2 mt-2">
                 <input data-testid="menu-form-special" type="checkbox" checked={form.is_special} onChange={e => setForm({ ...form, is_special: e.target.checked })} className="accent-orange-600 h-4 w-4" />
                 <span className="text-sm font-semibold flex items-center gap-1"><Sparkles size={14} className="text-orange-600" /> Mark as special</span>
@@ -130,7 +130,6 @@ export default function AdminMenu() {
           </div>
         </DrawerContent>
       </Drawer>
-      <style>{`.form-input{width:100%;padding:.75rem 1rem;border-radius:1rem;border:1px solid #e5e7eb;background:#fff;font-size:.875rem;outline:none}.form-input:focus{box-shadow:0 0 0 2px #EA580C}`}</style>
     </AppShell>
   );
 }
